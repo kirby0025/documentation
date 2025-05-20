@@ -58,7 +58,7 @@ TOKEN_REVIEW_JWT="$(kubectl get secret vault-auth -n vault -o go-template='{{ .d
 
 # Rewriting Kube API URL in auth method to match this sites cluster.
 echo "[$(date '+%Y%m%d %H%M%S')] : Setting kube api url" | tee -a "${LOGFILE}"
-vault write auth/production/kubernetes/config token_reviewer_jwt=$TOKEN_REVIEW_JWT kubernetes_ca_cert=@/root/.kube/infolegale.net.crt kubernetes_host="$HOST_KUBE" disable_iss_validation=true disable_local_ca_jwt=true
+vault write auth/production/kubernetes/config token_reviewer_jwt=$TOKEN_REVIEW_JWT kubernetes_ca_cert=@/root/.kube/cert.crt kubernetes_host="$HOST_KUBE" disable_iss_validation=true disable_local_ca_jwt=true
 
 echo "[$(date '+%Y%m%d %H%M%S')] : Cleaning downloaded snapshot ###" | tee -a "${LOGFILE}"
 rm -f /tmp/${FILENAME}
