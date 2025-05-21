@@ -1,0 +1,165 @@
+vcl 4.1;
+
+import std;
+import directors;
+
+probe docker {
+    .url = "/ping";
+    .timeout= 1s;
+    .interval = 5s;
+    .window = 5;
+    .threshold = 3;
+}
+
+{% if varnish_backend_servers is defined %}
+{% for backend, value in varnish_backend_servers.items() | list %}
+backend {{ backend }} {
+    .host = "{{ value.host }}";
+    .port = "{{ value.port }}";
+    .probe = docker;
+}
+{% endfor %}
+
+sub vcl_init {
+    new docker_servers = directors.round_robin();
+    {% for backend, value in varnish_backend_servers.items() |list %}
+    docker_servers.add_backend({{ backend }});
+    {% endfor %}
+}
+
+{% endif %}
+
+acl purge {
+{% for acl_host in varnish_acl_purge_hosts %}
+    "{{ acl_host }}";
+{% endfor %}
+}
+
+sub vcl_recv {
+
+    set req.backend_hint = docker_servers.backend();
+
+    set req.http.X-Forwarded-Port = "80";
+
+    if (req.method == "PURGE") {
+        # Check if PURGE coming from allowed purge IP
+        if (client.ip !~ purge) {
+            return (synth(405, "Method not allowed"));
+        }
+        ban("req.url ~ " + req.url);
+        return (synth(200, "Purged"));
+    }
+
+    if (req.method == "BAN") {
+        if (!client.ip ~ purge) {
+            return (synth(405, "Not allowed"));
+        }
+
+        if (req.http.X-Cache-Tags) {
+            ban("obj.http.X-Cache-Tags ~ " + req.http.X-Cache-Tags);
+            return (synth(200, "Banned"));
+        } else if (req.http.ApiPlatform-Ban-Regex) {
+            ban("obj.http.Cache-Tags ~ " + req.http.ApiPlatform-Ban-Regex);
+            return (synth(200, "Banned"));
+        } else {
+            ban("obj.http.X-Url ~ " + req.http.X-Url);
+            return (synth(200, "Banned"));
+        }
+    }
+
+    if (req.method != "GET" &&
+        req.method != "HEAD" &&
+        req.method != "PUT" &&
+        req.method != "POST" &&
+        req.method != "TRACE" &&
+        req.method != "OPTIONS" &&
+        req.method != "DELETE") {
+          /* Non-RFC2616 or CONNECT which is weird. */
+          return (pipe);
+    }
+
+    # We only deal with GET and HEAD by default
+    if (req.method != "GET" && req.method != "HEAD") {
+        return (pass);
+    }
+
+    # Bypass health check requests
+    if (req.url ~ "{{ varnish_health_check }}") {
+        return (pass);
+    }
+
+    # normalize url in case of leading HTTP scheme and domain
+    set req.url = regsub(req.url, "^http[s]?://", "");
+
+    # collect all cookies
+    std.collect(req.http.Cookie);
+
+    # Compression filter. See https://www.varnish-cache.org/trac/wiki/FAQ/Compression
+    if (req.http.Accept-Encoding) {
+        if (req.url ~ "\.(jpg|jpeg|png|gif|gz|tgz|bz2|tbz|mp3|ogg|swf|flv)$") {
+            # No point in compressing these
+            unset req.http.Accept-Encoding;
+        } elsif (req.http.Accept-Encoding ~ "gzip") {
+            set req.http.Accept-Encoding = "gzip";
+        } elsif (req.http.Accept-Encoding ~ "deflate" && req.http.user-agent !~ "MSIE") {
+            set req.http.Accept-Encoding = "deflate";
+        } else {
+            # unknown algorithm
+            unset req.http.Accept-Encoding;
+        }
+    }
+
+    return (hash);
+}
+
+sub vcl_backend_response {
+    # Happens after we have read the response headers from the backend.
+    #
+    # Here you clean the response headers, removing silly Set-Cookie headers
+    # and other mistakes your backend does.
+
+    ## cache only successfully responses and 404s
+    if (beresp.status != 200 && beresp.status != 404) {
+        set beresp.ttl = 0s;
+        set beresp.uncacheable = true;
+        return (deliver);
+    } elsif (beresp.http.Cache-Control ~ "private") {
+        set beresp.uncacheable = true;
+        # cache the fact that the response is non-cacheable for 1 day
+        set beresp.ttl = 86400s;
+        return (deliver);
+    }
+
+    # validate if we need to cache it and prevent from setting cookie
+    if (beresp.ttl > 0s && (bereq.method == "GET" || bereq.method == "HEAD")) {
+        unset beresp.http.set-cookie;
+    }
+
+    return (deliver);
+}
+
+sub vcl_deliver {
+    # Always include hit/miss information in response
+    if (resp.http.x-varnish ~ " ") {
+        set resp.http.X-Cache = "HIT";
+    } else {
+        set resp.http.X-Cache = "MISS";
+    }
+    set resp.http.X-Cache-Hits = obj.hits;
+
+    # Not letting browser to cache non-static files.
+    if (resp.http.Cache-Control !~ "private") {
+        set resp.http.Pragma = "no-cache";
+        set resp.http.Expires = "-1";
+        set resp.http.Cache-Control = "no-store, no-cache, must-revalidate, max-age=0";
+    }
+
+    {% if env == "prd" %}
+    # Unset a bunch of header if we are in prod environment
+    unset resp.http.X-Powered-By;
+    unset resp.http.Server;
+    unset resp.http.X-Varnish;
+    unset resp.http.Via;
+    unset resp.http.Link;
+    {% endif %}
+}
