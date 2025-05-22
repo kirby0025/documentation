@@ -1,0 +1,45 @@
+---
+
+- name: Remove hold on vault package
+  ansible.builtin.dpkg_selections:
+    name: vault
+    selection: install
+  tags: upgrade
+
+- name: Pause to let the operator step-down master is needed
+  ansible.builtin.pause:
+    prompt: "Run vault operator step-down if needed"
+    echo: no
+  when: "'<MasterNodeName>' in inventory_hostname"
+  tags: upgrade
+
+- name: Stopping vault service
+  ansible.builtin.systemd_service:
+    name: vault
+    state: stopped
+  tags: upgrade
+
+- name: Upgrading vault package
+  ansible.builtin.apt:
+    name: vault
+    update_cache: true
+    state: latest
+  tags: upgrade
+
+- name: Starting vault service
+  ansible.builtin.systemd_service:
+    name: vault
+    state: started
+  tags: upgrade
+
+- name: Set hold on vault package
+  ansible.builtin.dpkg_selections:
+    name: vault
+    selection: hold
+  tags: upgrade
+
+- name: Pause to unseal vault
+  ansible.builtin.pause:
+    prompt: "Go to vault interface and unseal the node : https://{{ inventory_hostname }}:8200"
+    echo: no
+  tags: upgrade
