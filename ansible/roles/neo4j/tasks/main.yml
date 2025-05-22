@@ -1,0 +1,7 @@
+---
+
+- include_tasks: install.yml
+  tags: install,config
+
+- include_tasks: backup.yml
+  tags: backup

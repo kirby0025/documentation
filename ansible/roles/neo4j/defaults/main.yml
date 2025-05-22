@@ -1,0 +1,4 @@
+---
+
+neo4j_default_listen_address: "0.0.0.0"
+neo4j_default_advertised_address: ""

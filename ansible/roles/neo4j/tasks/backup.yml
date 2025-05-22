@@ -1,0 +1,47 @@
+---
+
+- name: Setting up mount point for /nas
+  ansible.posix.mount:
+    path: "/nas"
+    src: "{{ neo4j_nfs_server }}:/data/shares/neo4j"
+    fstype: "nfs4"
+    opts: "rw,noatime,nodiratime,_netdev"
+    state: mounted
+  tags: backup
+
+- name: Ensure scripts folder exists
+  ansible.builtin.file:
+    path: "/data/scripts"
+    owner: root
+    group: root
+    mode: 0644
+    state: directory
+  tags: backup
+
+- name: Deploy backup script
+  ansible.builtin.copy:
+    src: "neo4j-dump-database.sh"
+    dest: "/data/scripts/neo4j-dump-database.sh"
+    owner: root
+    group: root
+    mode: 0750
+  tags: backup
+
+- name: Setting up backup cron
+  ansible.builtin.cron:
+    name: "neo4j backup"
+    minute: "0"
+    hour: "04"
+    job: "/data/scripts/neo4j-dump-database.sh -r 7 -d /nas -c"
+    disabled: true
+    user: root
+    cron_file: neo4j-backup
+    state: present
+  tags: backup
+
+- name: Adding checkmk config for backup script
+  ansible.builtin.lineinfile:
+    path: "/etc/check_mk/mrpe.cfg"
+    regexp: "^#?neo4j_dump /usr/local/nagios/plugins/check_batch neo4j-dump-database.sh 129600"
+    line: "#neo4j_dump /usr/local/nagios/plugins/check_batch neo4j-dump-database.sh 129600"
+  tags: backup
