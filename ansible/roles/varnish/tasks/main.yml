@@ -1,0 +1,117 @@
+---
+
+- name: install varnish package
+  ansible.builtin.apt:
+    name: varnish
+    state: present
+    update_cache: true
+  tags: install
+
+- name: hold packages
+  ansible.builtin.dpkg_selections:
+    name: "varnish"
+    selection: hold
+  tags: install
+
+- name: disabled default varnish/varnishcsa service
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  with_items:
+    - varnish
+    - varnishncsa
+  tags: install
+
+- name: ensure ipv4 takes precedence
+  ansible.builtin.lineinfile:
+    path: /etc/gai.conf
+    line: precedence ::ffff:0:0/96  100
+  tags: install
+
+- name: deploy rsyslogd conf
+  ansible.builtin.copy:
+    src: rsyslog.conf
+    dest: /etc/rsyslog.d/10-varnishd.conf
+    owner: root
+    group: root
+    mode: 0644
+  tags: install
+  notify: rsyslogd restart
+
+- name: deploy logrotate conf
+  ansible.builtin.copy:
+    src: logrotate.conf
+    dest: /etc/logrotate.d/varnishd
+    owner: root
+    group: root
+    mode: 0644
+  tags: install
+
+- name: deploy varnishncsa logrotate conf
+  ansible.builtin.copy:
+    src: logrotatencsa.conf
+    dest: /etc/logrotate.d/varnishncsa
+    owner: root
+    group: root
+    mode: 0644
+  tags: install
+
+- name: create varnishncsa log dir
+  ansible.builtin.file:
+    path: /data/log/web/
+    state: directory
+    owner: varnishlog
+    group: varnish
+    mode: 0750
+  tags: install
+
+- name: deploy custom varnish systemd service file
+  ansible.builtin.template:
+    src: varnish.service.j2
+    dest: /etc/systemd/system/varnish.service
+    owner: root
+    group: root
+    mode: 0644
+  tags: install,config
+  notify: varnish restart
+
+- name: deploy custom varnishncsa systemd service file
+  ansible.builtin.template:
+    src: "{{ env }}-varnishncsa-{{ item }}.service.j2"
+    dest: "/etc/systemd/system/varnishncsa-{{ item }}.service"
+    owner: root
+    group: root
+    mode: 0644
+  tags: install,config
+  with_items: "{{ varnishncsa_custom_items }}"
+  notify: varnishncsa restart
+
+- name: enabled custom varnish systemd service
+  ansible.builtin.systemd:
+    name: varnish
+    enabled: true
+  tags: install
+
+- name: start varnish on install
+  ansible.builtin.systemd:
+    name: varnish
+    state: started
+  tags: install
+
+- name: enabled custom varnishncsa services
+  ansible.builtin.systemd:
+    name: "varnishncsa-{{ item }}"
+    enabled: true
+  with_items: "{{ varnishncsa_custom_items }}"
+  tags: install
+
+- name: deploy varnish config file
+  ansible.builtin.template:
+    src: default.vcl.j2
+    dest: /etc/varnish/default.vcl
+    owner: root
+    group: root
+    mode: 0644
+  tags: install,config
+  notify: varnish reload

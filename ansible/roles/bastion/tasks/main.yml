@@ -1,0 +1,13 @@
+---
+
+- name: user deployment related tasks
+  include_tasks: users.yml
+  tags: all,users,rootonly
+
+- name: firewall deployment related tasks
+  include_tasks: firewall.yml
+  tags: all,firewall
+
+- name: ssh deployment related tasks
+  include_tasks: ssh.yml
+  tags: all,ssh

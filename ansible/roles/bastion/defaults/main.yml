@@ -1,0 +1,10 @@
+---
+
+private_networks: ""
+allowed_networks: ""
+fail2ban_ignore_ips: ""
+
+dev_users: []
+admin_users: []
+rundeck_users: []
+log_server: ""

@@ -1,0 +1,20 @@
+[Unit]
+Description=Varnish HTTP accelerator log daemon for domain1
+Documentation=https://www.varnish-cache.org/docs/6.1/ man:varnishncsa
+After=varnish.service
+
+[Service]
+Type=forking
+PIDFile=/run/varnishncsa/varnishncsa-domain1.pid
+RuntimeDirectory=varnishncsa
+User=varnishlog
+Group=varnish
+ExecStart=/usr/bin/varnishncsa -q "ReqHeader:host eq 'domain1'" -F "%%{Host}i %%{X-Forwarded-For}i %%l %%u %%t \"%%m %%U%%q %%H\" %%s %%b \"%%{Referer}i\" \"%%{User-Agent}i\" %%D" -a -w /data/log/web/domain1-access.log -D -P /run/varnishncsa/varnishncsa-domain1.pid
+ExecReload=/bin/kill -HUP $MAINPID
+PrivateDevices=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

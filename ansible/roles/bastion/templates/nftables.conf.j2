@@ -1,0 +1,32 @@
+#{{ ansible_managed }}
+
+#!/usr/sbin/nft -f
+
+flush ruleset
+
+table inet filter {
+        chain input {
+                type filter hook input priority 0; policy drop;
+                iifname lo accept;
+
+                tcp dport 22 accept;
+                icmp type echo-request accept;
+                # established/related connections
+                ct state established,related accept
+        }
+        chain forward {
+                type filter hook forward priority 0; policy drop;
+        }
+        chain output {
+                type filter hook output priority 0; policy drop;
+
+                iifname lo accept;
+                tcp dport 22 accept;
+                tcp dport {80, 443, 9200} accept;
+                tcp dport {53, 123} accept;
+                udp dport {53, 123, 1514} accept;
+                icmp type echo-request accept;
+                # established/related connections
+                ct state established,related accept;
+        }
+}

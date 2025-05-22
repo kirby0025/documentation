@@ -1,0 +1,32 @@
+[Unit]
+Description=Varnish Cache, a high-performance HTTP accelerator
+Documentation=https://www.varnish-cache.org/docs/ man:varnishd
+
+[Service]
+Type=simple
+
+# Maximum number of open files (for ulimit -n)
+LimitNOFILE=131072
+
+# Locked shared memory - should suffice to lock the shared memory log
+# (varnishd -l argument)
+# Default log size is 80MB vsl + 1M vsm + header -> 82MB
+# unit is bytes
+LimitMEMLOCK=85983232
+ExecStart=/usr/sbin/varnishd \
+          -j unix,user=vcache \
+          -F \
+          -a {{ varnish_listen_host }}:{{ varnish_listen_port }} \
+          -T localhost:6082 \
+          -f /etc/varnish/default.vcl \
+          -S /etc/varnish/secret \
+          -s malloc,{{ varnish_maxmemory }} \
+          -p http_resp_hdr_len=16384
+ExecReload=/usr/share/varnish/varnishreload
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+
+[Install]
+WantedBy=multi-user.target

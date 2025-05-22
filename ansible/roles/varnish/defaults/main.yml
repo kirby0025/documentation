@@ -1,0 +1,15 @@
+---
+
+varnish_listen_host: '0.0.0.0'
+varnish_listen_port: 6081
+varnish_maxmemory: '3G'
+
+varnish_acl_purge_hosts:
+    - 127.0.0.1
+
+varnish_health_check: "/healthcheck$"
+
+varnishncsa_custom_items:
+    - domain1
+    - domain2
+    - domain3

@@ -1,0 +1,24 @@
+---
+
+- name: rsyslogd restart
+  ansible.builtin.systemd:
+    name: rsyslog
+    state: restarted
+
+- name: varnish reload
+  ansible.builtin.systemd:
+    name: varnish
+    state: reloaded
+
+- name: varnish restart
+  ansible.builtin.systemd:
+    name: varnish
+    daemon_reload: true
+    state: restarted
+
+- name: varnishncsa restart
+  ansible.builtin.systemd:
+    name: "varnishncsa-{{ item }}"
+    daemon_reload: true
+    state: restarted
+  with_items: "{{ varnishncsa_custom_items }}"
