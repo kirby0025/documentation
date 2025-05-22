@@ -1,0 +1,47 @@
+---
+
+- name: copy opcache script to server
+  ansible.builtin.copy:
+    src: opcache.php
+    dest: /data/services/web/default/opcache.php
+    owner: www-data
+    group: www-data
+    mode: 0644
+
+- name: remove opcache tuning in www.conf pool
+  ansible.builtin.lineinfile:
+    path: "/etc/php/{{ php_version }}/fpm/pool.d/www.conf"
+    state: absent
+    line: "{{ item }}"
+  with_items:
+    - "php_value[opcache.max_accelerated_files] = 10000"
+    - "php_value[opcache.memory_consumption] = 128"
+
+- name: On sort le serveur du pool
+  ansible.builtin.file:
+    path: /data/services/web/default/check/.online
+    state: absent
+
+- name: sleep for 6 seconds and continue with play
+  ansible.builtin.wait_for: timeout=6
+  delegate_to: localhost
+
+- name: restart php-fpm and apache
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+  with_items:
+    - apache2
+    - "{{ 'php' + php_version + '-fpm' }}"
+
+- name: On remet le serveur dans le pool
+  ansible.builtin.file:
+    path: /data/services/web/default/check/.online
+    state: touch
+    mode: '0777'
+    owner: "{{ user }}"
+    group: "{{ user }}"
+
+- name: sleep for 3 seconds and continue with play
+  ansible.builtin.wait_for: timeout=3
+  delegate_to: localhost
