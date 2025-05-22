@@ -1,0 +1,1 @@
+{{ lookup('community.hashi_vault.hashi_vault','ansible/data/rabbitmq/{{ env }}/erlang-cookie:value') }}

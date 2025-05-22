@@ -1,0 +1,9 @@
+---
+
+- name: Import install tasks
+  ansible.builtin.include_tasks: install.yml
+  tags: install
+
+- name: Import config tasks
+  ansible.builtin.include_tasks: config.yml
+  tags: config,users,queues,vhosts,exchanges,bindings

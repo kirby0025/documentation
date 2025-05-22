@@ -1,0 +1,156 @@
+---
+
+- name: Install requirements
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - gnupg
+    - curl
+    - apt-transport-https
+    - debian-keyring
+  tags: install,conf
+
+- name: Import cloudsmith key (Rabbitmq-server)
+  ansible.builtin.get_url:
+    url: "https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-server/gpg.9F4587F226208342.key"
+    dest: "/usr/share/keyrings/rabbitmq.9F4587F226208342.asc"
+    mode: 0644
+    force: true
+  tags: install
+
+- name: Import cloudsmith key (Erlang)
+  ansible.builtin.get_url:
+    url: "https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-erlang.E495BB49CC4BBE5B.key"
+    dest: "/usr/share/keyrings/rabbitmq.E495BB49CC4BBE5B.gpg"
+    mode: 0644
+    force: true
+  tags: install
+
+- name: Import cloudsmith key (Erlang) - 2
+  ansible.builtin.get_url:
+    url: "https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-server.9F4587F226208342.key"
+    dest: "/usr/share/keyrings/rabbitmq.9F4587F226208342.gpg"
+    mode: 0644
+    force: true
+  tags: install
+
+- name: Add rabbitmq repository
+  ansible.builtin.apt_repository:
+    filename: rabbitmq
+    repo: "{{ item }}"
+  with_items:
+    - 'deb [arch=amd64 signed-by=/usr/share/keyrings/rabbitmq.E495BB49CC4BBE5B.gpg] https://ppa1.rabbitmq.com/rabbitmq/rabbitmq-erlang/deb/debian bookworm main'
+    - 'deb-src [signed-by=/usr/share/keyrings/rabbitmq.E495BB49CC4BBE5B.gpg] https://ppa1.rabbitmq.com/rabbitmq/rabbitmq-erlang/deb/debian bookworm main'
+    - 'deb [arch=amd64 signed-by=/usr/share/keyrings/rabbitmq.E495BB49CC4BBE5B.gpg] https://ppa2.rabbitmq.com/rabbitmq/rabbitmq-erlang/deb/debian bookworm main'
+    - 'deb-src [signed-by=/usr/share/keyrings/rabbitmq.E495BB49CC4BBE5B.gpg] https://ppa2.rabbitmq.com/rabbitmq/rabbitmq-erlang/deb/debian bookworm main'
+    - 'deb [arch=amd64 signed-by=/usr/share/keyrings/rabbitmq.9F4587F226208342.gpg] https://ppa1.rabbitmq.com/rabbitmq/rabbitmq-server/deb/debian bookworm main'
+    - 'deb-src [signed-by=/usr/share/keyrings/rabbitmq.9F4587F226208342.gpg] https://ppa1.rabbitmq.com/rabbitmq/rabbitmq-server/deb/debian bookworm main'
+    - 'deb [arch=amd64 signed-by=/usr/share/keyrings/rabbitmq.9F4587F226208342.gpg] https://ppa2.rabbitmq.com/rabbitmq/rabbitmq-server/deb/debian bookworm main'
+    - 'deb-src [signed-by=/usr/share/keyrings/rabbitmq.9F4587F226208342.gpg] https://ppa2.rabbitmq.com/rabbitmq/rabbitmq-server/deb/debian bookworm main'
+  tags: install
+
+- name: Install Erlang packages
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - erlang-base
+    - erlang-asn1
+    - erlang-crypto
+    - erlang-eldap
+    - erlang-ftp
+    - erlang-inets
+    - erlang-mnesia
+    - erlang-os-mon
+    - erlang-parsetools
+    - erlang-public-key
+    - erlang-runtime-tools
+    - erlang-snmp
+    - erlang-ssl
+    - erlang-syntax-tools
+    - erlang-tftp
+    - erlang-tools
+    - erlang-xmerl
+  tags: install
+
+- name: Install rabbitmq-server
+  ansible.builtin.apt:
+    name: "rabbitmq-server"
+    state: present
+  tags: install
+
+- name: Hold rabbitmq and Erlang packages
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  with_items:
+    - rabbitmq-server
+    - erlang-base
+  tags: install
+
+- name: Create systemd rabbit override directory
+  ansible.builtin.file:
+    path: "/etc/systemd/system/rabbitmq-server.service.d"
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+  tags: install
+
+- name: Set LimitNOFILE
+  ansible.builtin.copy:
+    src: limits.conf
+    dest: "/etc/systemd/system/rabbitmq-server.service.d/limits.conf"
+    mode: 0644
+    owner: root
+    group: root
+  tags: install
+  notify:
+    - Daemon_reload
+    - Restart Rabbitmq
+
+- name: Set Erlang cookie
+  ansible.builtin.template:
+    src: erlang.cookie
+    dest: /var/lib/rabbitmq/.erlang.cookie
+    owner: rabbitmq
+    group: rabbitmq
+    mode: 0400
+  tags: install
+  notify: Restart Rabbitmq
+
+- name: Ensure rabbitmq-server service is enabled
+  ansible.builtin.systemd_service:
+    name: rabbitmq-server.service
+    enabled: true
+  tags: install
+
+- name: Deploy rabbitmq config file
+  ansible.builtin.template:
+    src: rabbitmq.conf.j2
+    dest: /etc/rabbitmq/rabbitmq.conf
+    mode: 0644
+    owner: rabbitmq
+    group: rabbitmq
+  notify: Restart Rabbitmq
+  tags: install
+
+- name: Deploy rabbitmq env file
+  ansible.builtin.template:
+    src: rabbitmq-env.conf.j2
+    dest: /etc/rabbitmq/rabbitmq-env.conf
+    mode: 0644
+    owner: rabbitmq
+    group: rabbitmq
+  notify: Restart Rabbitmq
+  tags: install
+
+- name: Deploy logrotate conf
+  ansible.builtin.copy:
+    src: logrotate
+    dest: /etc/logrotate.d/rabbitmq-server
+    mode: 0644
+    user: root
+    group: root
+  tags: install

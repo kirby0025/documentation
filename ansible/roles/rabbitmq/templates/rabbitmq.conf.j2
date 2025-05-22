@@ -1,0 +1,31 @@
+#{{ ansible_managed }}
+
+# Limit to 70% of RAM
+vm_memory_high_watermark.relative = 0.7
+
+# Tuning raft WAL log file https://rabbitmq.com/quorum-queues.html#segment-entry-count
+raft.segment_max_entries = 32768
+raft.wal_max_size_bytes = 32000000
+
+####################
+#
+# Cluster settings
+#
+####################
+
+cluster_formation.peer_discovery_backend = classic_config
+cluster_name = {{ rabbitmq_cluster_name }}
+{% for item in rabbitmq_cluster_nodes %}
+cluster_formation.classic_config.nodes.{{ loop.index }} = rabbit{{ loop.index }}@{{ item.hostname }}
+{% endfor %}
+
+####################
+#
+# Prometheus Plugins
+#
+####################
+
+## Statistics collection interval (in milliseconds). Increasing
+## this will reduce the load on management database.
+##
+collect_statistics_interval = {{ rabbitmq_collect_statistics_interval }}
