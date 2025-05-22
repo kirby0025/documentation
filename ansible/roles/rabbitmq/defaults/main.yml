@@ -6,3 +6,31 @@ rabbitmq_app_users: ""
 rabbitmq_vhosts: ""
 rabbitmq_plugins: "rabbitmq_management,rabbitmq_shovel,rabbitmq_prometheus,rabbitmq_shovel_management"
 rabbitmq_collect_statistics_interval: 30000
+
+#rabbitmq_exchanges:
+#    - name: "myapp.topic"
+#      type: "topic"
+#      vhost: "myapp"
+#
+#rabbitmq_queues:
+#    - name: "myapp.queue"
+#      vhost: "myapp"
+#      dead_letter_exchange: ""
+#      dead_letter_routing_key: "myapp.dlq"
+#      arguments:
+#          x-queue-type: quorum
+#
+#rabbitmq_bindings:
+#    - name: "myapp.topic"
+#      vhost: "myapp"
+#      destination: "myapp.queue"
+#      destination_type: "queue"
+#      routing_key: "*"
+#
+#rabbitmq_app_users:
+#    - username: "myapp"
+#      password: "{{ lookup('community.hashi_vault.hashi_vault','ansible/data/rabbitmq/{{ env }}/users/myapp:password') }}"
+#      vhost: "myapp"
+#      read_priv: "^myapp.*"
+#      write_priv: "^myapp.*"
+#      configure_priv: "^$"
