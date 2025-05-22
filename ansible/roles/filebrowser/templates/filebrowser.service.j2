@@ -1,0 +1,17 @@
+[Unit]
+Description=Filebrowser
+Documentation=https://filebrowser.org
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User={{ fb_user }}
+Group={{ fb_group }}
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStart=/usr/local/bin/filebrowser --config {{ fb_config_dir }}/settings.json
+SyslogIdentifier=filebrowser
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

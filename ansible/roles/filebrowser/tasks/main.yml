@@ -1,0 +1,89 @@
+---
+
+- name: Create download folder
+  ansible.builtin.file:
+    path: "/tmp/filebrowser"
+    state: directory
+
+- name: Download Filebrowser binary from github
+  ansible.builtin.unarchive:
+    src: "https://github.com/filebrowser/filebrowser/releases/download/v{{ fb_version }}/linux-amd64-filebrowser.tar.gz"
+    dest: "/tmp/filebrowser"
+    remote_src: true
+
+- name: Moving filebrowser binary to /usr/local/bin
+  ansible.builtin.copy:
+    src: /tmp/filebrowser/filebrowser
+    dest: /usr/local/bin/filebrowser
+    owner: root
+    group: root
+    mode: 0755
+    remote_src: true
+
+- name: Create configuration folder
+  ansible.builtin.file:
+    path: "{{ fb_config_dir }}"
+    owner: "{{ fb_user }}"
+    group: "{{ fb_group }}"
+    mode: 0755
+    state: directory
+
+- name: Deploying configuration file
+  ansible.builtin.template:
+    src: "settings.json.j2"
+    dest: "{{ fb_config_dir }}/settings.json"
+    owner: "{{ fb_user }}"
+    group: "{{ fb_group }}"
+    mode: 0644
+  notify: Restart
+
+- name: Deploying service file
+  ansible.builtin.template:
+    src: "filebrowser.service.j2"
+    dest: "/lib/systemd/system/filebrowser.service"
+    owner: "root"
+    group: "root"
+    mode: 0644
+  notify:
+    - Daemon reload
+
+- name: Running handlers for daemon reload
+  meta: flush_handlers
+
+- name: Enabling filebrowser service
+  ansible.builtin.systemd:
+    name: filebrowser.service
+    state: started
+    enabled: true
+
+- name: Create log folder
+  ansible.builtin.file:
+    path: "{{ fb_log_dir }}"
+    owner: root
+    group: adm
+    mode: 0755
+    state: directory
+
+- name: Deploy rsyslog config
+  ansible.builtin.copy:
+    src: rsyslog.conf
+    dest: /etc/rsyslog.d/filebrowser.conf
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Deploy logrotate config
+  ansible.builtin.copy:
+    src: logrotate.conf
+    dest: /etc/logrotate.d/filebrowser
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Create custom branding folder
+  ansible.builtin.file:
+    path: "/etc/filebrowser/branding/img/icons"
+    owner: "{{ fb_user }}"
+    group: "{{ fb_group }}"
+    mode: 0755
+    state: directory
