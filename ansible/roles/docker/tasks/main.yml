@@ -1,0 +1,131 @@
+- name: set specific variables for distributions
+  include_vars: '{{ item }}'
+  with_first_found:
+    - '{{ ansible_distribution }}-{{ ansible_distribution_version }}.yml'
+    - '{{ ansible_os_family }}-{{ ansible_distribution_major_version }}.yml'
+    - '{{ ansible_distribution }}-{{ ansible_distribution_major_version }}.yml'
+    - '{{ ansible_distribution }}.yml'
+    - '{{ ansible_os_family }}.yml'
+    - default.yml
+
+- name: Suppression anciennes versions de docker
+  apt:
+    pkg:
+      - docker
+      - docker-engine
+      - docker.io
+    state: absent
+
+- name: Installation des prérequis
+  apt:
+    pkg:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg2
+      - software-properties-common
+      - nfs-common
+    state: present
+    update_cache: yes
+
+- name: Ajout de la clef GPG docker.com
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Ajout du repo APT docker.com
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/{{ ansible_distribution|lower }} {{ ansible_distribution_release }} stable
+    state: present
+    filename: docker
+
+- name: Installation de docker dans la version {{ target_version }}
+  apt:
+    pkg:
+      - docker-ce={{ target_version }}
+      - docker-ce-cli={{ target_version }}
+    state: present
+    update_cache: yes
+  register: apt_out
+
+- name: Affichage sortie du module apt
+  debug:
+    msg:
+      - "{{ apt_out.stdout_lines }}"
+      - "{{ apt_out.stderr_lines }}"
+  ignore_errors: yes
+
+- name: Verrouillage des paquets docker-ce
+  command: apt-mark hold docker-ce docker-ce-cli containerd.io
+
+- name: adding cleaning cron
+  cron:
+    minute: "0"
+    hour: "0"
+    job: "/usr/bin/docker image prune -a -f >/dev/null 2>&1"
+    name: "image-prune"
+    user: "root"
+    cron_file: image-prune
+
+- name: Augmentation des valeurs systeme inotify max_user_instances
+  ansible.posix.sysctl:
+    name: fs.inotify.max_user_instances
+    value: '4096'
+    sysctl_set: true
+    state: present
+    reload: true
+
+- name: Augmentation des valeurs systeme inotify max_user_watches
+  ansible.posix.sysctl:
+    name: fs.inotify.max_user_watches
+    value: '2097152'
+    sysctl_set: true
+    state: present
+    reload: true
+
+- name: Désactivation du swap
+  ansible.posix.sysctl:
+    name: vm.swappiness
+    value: '1'
+    sysctl_set: true
+    state: present
+    reload: true
+
+- name: Customise containerd file config.toml
+  ansible.builtin.copy:
+    src: config.toml
+    dest: /etc/containerd/config.toml
+    owner: root
+    group: root
+    mode: '0755'
+  notify: restart containerd
+
+- name: Customise docker file daemon.json
+  ansible.builtin.copy:
+    src: daemon.json
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: '0755'
+  notify: restart docker
+
+- name: Adding Multipathd blacklist for longhorn support
+  ansible.builtin.blockinfile:
+    path: /etc/multipath.conf
+    block: |
+      # https://longhorn.io/kb/troubleshooting-volume-with-multipath/
+      blacklist {
+          devnode "^sd[a-z0-9]+"
+      }
+  notify: restart multipathd
+
+- name: start and enable iscsi daemon for longhorn support
+  ansible.builtin.systemd_service:
+    name: iscsid
+    enabled: true
+    state: started
+
+- name: enable iscsi_tcp kernel module for longhorn support
+  community.general.modprobe:
+    name: iscsi_tcp
+    state: present
