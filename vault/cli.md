@@ -46,3 +46,13 @@ vault write -f auth/approle/role/<monRole>/secret-id
 ```bash
 vault write auth/ldap/users/myUser groups=lead-dev policies=new-policy
 ```
+
+### See blocked users
+```bash
+vault read /sys/locked-users
+```
+
+### Unblock user
+```bash
+vault write -f /sys/locked-users/auth_ldap_92748d56/unlock/testsla
+```
