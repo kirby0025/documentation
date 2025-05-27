@@ -1,7 +1,9 @@
 ---
 
-- include_tasks: install.yml
+- name: Include install tasks
+  ansible.builtin.include_tasks: install.yml
   tags: install,config
 
-- include_tasks: backup.yml
+- name: Include backup tasks
+  ansible.builtin.include_tasks: backup.yml
   tags: backup

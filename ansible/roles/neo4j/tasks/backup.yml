@@ -14,7 +14,7 @@
     path: "/data/scripts"
     owner: root
     group: root
-    mode: 0644
+    mode: "0644"
     state: directory
   tags: backup
 
@@ -24,7 +24,7 @@
     dest: "/data/scripts/neo4j-dump-database.sh"
     owner: root
     group: root
-    mode: 0750
+    mode: "0750"
   tags: backup
 
 - name: Setting up backup cron

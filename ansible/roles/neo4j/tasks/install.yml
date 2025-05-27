@@ -1,6 +1,6 @@
 ---
 
-- name: checking dependencies
+- name: Checking dependencies
   ansible.builtin.apt:
     package: "{{ item }}"
     state: present
@@ -12,28 +12,28 @@
     - nfs-common
   tags: install
 
-- name: adding neo4j pgp key
+- name: Adding neo4j pgp key
   ansible.builtin.get_url:
     url: "https://debian.neo4j.com/neotechnology.gpg.key"
     dest: "/usr/share/keyrings/neo4j.asc"
-    mode: 0644
+    mode: "0644"
     force: true
   tags: install
 
-- name: adding repo
+- name: Adding repo
   ansible.builtin.apt_repository:
     repo: "deb [signed-by=/usr/share/keyrings/neo4j.asc] https://debian.neo4j.com stable latest"
     update_cache: true
     state: present
   tags: install
 
-- name: install package
+- name: Install package
   ansible.builtin.apt:
     package: "neo4j"
     state: present
   tags: install
 
-- name: holding package
+- name: Holding package
   ansible.builtin.dpkg_selections:
     name: neo4j
     selection: hold
@@ -51,6 +51,6 @@
     dest: "/etc/neo4j/neo4j.conf"
     owner: neo4j
     group: neo4j
-    mode: 0660
+    mode: "0660"
   tags: install,config
-  notify: restart neo4j
+  notify: Restart neo4j
