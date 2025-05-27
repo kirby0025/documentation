@@ -1,5 +1,7 @@
-- name: set specific variables for distributions
-  include_vars: '{{ item }}'
+---
+
+- name: Set specific variables for distributions
+  ansible.builtin.include_vars: '{{ item }}'
   with_first_found:
     - '{{ ansible_distribution }}-{{ ansible_distribution_version }}.yml'
     - '{{ ansible_os_family }}-{{ ansible_distribution_major_version }}.yml'
@@ -9,7 +11,7 @@
     - default.yml
 
 - name: Suppression anciennes versions de docker
-  apt:
+  ansible.builtin.apt:
     pkg:
       - docker
       - docker-engine
@@ -17,7 +19,7 @@
     state: absent
 
 - name: Installation des prérequis
-  apt:
+  ansible.builtin.apt:
     pkg:
       - apt-transport-https
       - ca-certificates
@@ -26,40 +28,46 @@
       - software-properties-common
       - nfs-common
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Ajout de la clef GPG docker.com
-  apt_key:
+  ansible.builtin.apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg
     state: present
 
 - name: Ajout du repo APT docker.com
-  apt_repository:
-    repo: deb [arch=amd64] https://download.docker.com/linux/{{ ansible_distribution|lower }} {{ ansible_distribution_release }} stable
+  ansible.builtin.apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable
     state: present
     filename: docker
 
-- name: Installation de docker dans la version {{ target_version }}
-  apt:
+- name: Installation de docker dans la version {{ docker_target_version }}
+  ansible.builtin.apt:
     pkg:
-      - docker-ce={{ target_version }}
-      - docker-ce-cli={{ target_version }}
+      - docker-ce={{ docker_target_version }}
+      - docker-ce-cli={{ docker_target_version }}
     state: present
-    update_cache: yes
+    update_cache: true
   register: apt_out
 
 - name: Affichage sortie du module apt
-  debug:
+  ansible.builtin.debug:
     msg:
       - "{{ apt_out.stdout_lines }}"
       - "{{ apt_out.stderr_lines }}"
-  ignore_errors: yes
+  failed_when: apt_out.rc != 0
 
 - name: Verrouillage des paquets docker-ce
-  command: apt-mark hold docker-ce docker-ce-cli containerd.io
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  with_items:
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
 
-- name: adding cleaning cron
-  cron:
+- name: Adding cleaning cron
+  ansible.builtin.cron:
     minute: "0"
     hour: "0"
     job: "/usr/bin/docker image prune -a -f >/dev/null 2>&1"
@@ -97,8 +105,8 @@
     dest: /etc/containerd/config.toml
     owner: root
     group: root
-    mode: '0755'
-  notify: restart containerd
+    mode: "0755"
+  notify: Restart containerd
 
 - name: Customise docker file daemon.json
   ansible.builtin.copy:
@@ -106,8 +114,8 @@
     dest: /etc/docker/daemon.json
     owner: root
     group: root
-    mode: '0755'
-  notify: restart docker
+    mode: "0755"
+  notify: Restart docker
 
 - name: Adding Multipathd blacklist for longhorn support
   ansible.builtin.blockinfile:
@@ -117,15 +125,15 @@
       blacklist {
           devnode "^sd[a-z0-9]+"
       }
-  notify: restart multipathd
+  notify: Restart multipathd
 
-- name: start and enable iscsi daemon for longhorn support
+- name: Start and enable iscsi daemon for longhorn support
   ansible.builtin.systemd_service:
     name: iscsid
     enabled: true
     state: started
 
-- name: enable iscsi_tcp kernel module for longhorn support
+- name: Enable iscsi_tcp kernel module for longhorn support
   community.general.modprobe:
     name: iscsi_tcp
     state: present
