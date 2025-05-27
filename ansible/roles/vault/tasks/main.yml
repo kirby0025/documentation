@@ -8,7 +8,7 @@
 - name: Pause to let the operator step-down master is needed
   ansible.builtin.pause:
     prompt: "Run vault operator step-down if needed"
-    echo: no
+    echo: false
   when: "'<MasterNodeName>' in inventory_hostname"
 
 - name: Stopping vault service
@@ -20,7 +20,7 @@
   ansible.builtin.apt:
     name: vault
     update_cache: true
-    state: latest
+    state: present
 
 - name: Starting vault service
   ansible.builtin.systemd_service:
@@ -35,4 +35,4 @@
 - name: Pause to unseal vault
   ansible.builtin.pause:
     prompt: "Go to vault interface and unseal the node : https://{{ inventory_hostname }}:8200"
-    echo: no
+    echo: false
