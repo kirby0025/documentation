@@ -9,7 +9,7 @@ varnish_acl_purge_hosts:
 
 varnish_health_check: "/healthcheck$"
 
-varnishncsa_custom_items:
+varnish_varnishncsa_custom_items:
     - domain1
     - domain2
     - domain3
