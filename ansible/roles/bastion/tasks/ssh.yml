@@ -1,28 +1,28 @@
 ---
 
-- name: ensure sshd is enabled
+- name: Ensure sshd is enabled
   ansible.builtin.systemd:
     name: sshd
     enabled: true
   tags: all,ssh
 
-- name: deploy sshd_config
+- name: Deploy sshd_config
   ansible.builtin.template:
     src: sshd_config.j2
     dest: /etc/ssh/sshd_config
     owner: root
     group: root
-    mode: 0644
+    mode: "0644"
     validate: "sshd -T -f %s"
-  notify: restart ssh
+  notify: Restart ssh
   tags: all,ssh
 
-- name: deploy rsyslog conf
+- name: Deploy rsyslog conf
   ansible.builtin.template:
     src: auth.conf.j2
     dest: /etc/rsyslog.d/auth.conf
     owner: root
     group: root
-    mode: 0644
-  notify: restart rsyslog
+    mode: "0644"
+  notify: Restart rsyslog
   tags: all,ssh

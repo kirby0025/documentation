@@ -1,13 +1,13 @@
 ---
 
-- name: installing sudo
+- name: Installing sudo
   ansible.builtin.apt:
     name: sudo
     update_cache: true
     state: present
   tags: all,users
 
-- name: adding targetpw directive for sudo
+- name: Adding targetpw directive for sudo
   ansible.builtin.lineinfile:
     path: /etc/sudoers
     line: "{{ item }}"
@@ -17,37 +17,37 @@
     - "Defaults        insults"
   tags: all,users
 
-- name: creating admin users
+- name: Creating admin users
   ansible.builtin.user:
     name: "{{ item.username }}"
     shell: /bin/bash
     groups: sudo
-  with_items: "{{ admin_users }}"
+  with_items: "{{ bastion_admin_users }}"
   tags: all,users
 
-- name: creating dev users
+- name: Creating dev users
   ansible.builtin.user:
     name: "{{ item.username }}"
     shell: /bin/bash
     groups: sudo
-  with_items: "{{ dev_users }}"
+  with_items: "{{ bastion_dev_users }}"
   tags: all,users
 
-- name: adding authorized_keys for regular users
-  ansible.builtin.authorized_key:
+- name: Adding authorized_keys for regular users
+  ansible.posix.authorized_key:
     user: "{{ item.username }}"
     key: "{{ item.public_key }}"
     state: "{{ item.state | default('present') }}"
   with_items:
-    - "{{ admin_users }}"
-    - "{{ dev_users }}"
+    - "{{ bastion_admin_users }}"
+    - "{{ bastion_dev_users }}"
   tags: all,users
 
-- name: adding authorized_keys for root users
-  ansible.builtin.authorized_key:
+- name: Adding authorized_keys for root users
+  ansible.posix.authorized_key:
     user: "root"
     key: "{{ item.public_key }}"
-    key_options: 'from="{{ private_networks }}"'
+    key_options: 'from="{{ bastion_private_networks }}"'
     state: "{{ item.state }}"
-  with_items: "{{ admin_users }}"
+  with_items: "{{ bastion_admin_users }}"
   tags: all,users,rootonly

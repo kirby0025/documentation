@@ -1,10 +1,10 @@
 ---
 
-private_networks: ""
-allowed_networks: ""
-fail2ban_ignore_ips: ""
+bastion_private_networks: ""
+bastion_allowed_networks: ""
+bastion_fail2ban_ignore_ips: ""
 
-dev_users: []
-admin_users: []
-rundeck_users: []
-log_server: ""
+bastion_dev_users: []
+bastion_admin_users: []
+bastion_rundeck_users: []
+bastion_log_server: ""
