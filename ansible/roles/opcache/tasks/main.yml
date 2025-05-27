@@ -1,14 +1,14 @@
 ---
 
-- name: copy opcache script to server
+- name: Copy opcache script to server
   ansible.builtin.copy:
     src: opcache.php
     dest: /data/services/web/default/opcache.php
     owner: www-data
     group: www-data
-    mode: 0644
+    mode: "0644"
 
-- name: remove opcache tuning in www.conf pool
+- name: Remove opcache tuning in www.conf pool
   ansible.builtin.lineinfile:
     path: "/etc/php/{{ php_version }}/fpm/pool.d/www.conf"
     state: absent
@@ -22,11 +22,12 @@
     path: /data/services/web/default/check/.online
     state: absent
 
-- name: sleep for 6 seconds and continue with play
-  ansible.builtin.wait_for: timeout=6
+- name: Sleep for 6 seconds and continue with play
+  ansible.builtin.wait_for:
+    timeout: 6
   delegate_to: localhost
 
-- name: restart php-fpm and apache
+- name: Restart php-fpm and apache
   ansible.builtin.systemd:
     name: "{{ item }}"
     state: restarted
@@ -38,10 +39,11 @@
   ansible.builtin.file:
     path: /data/services/web/default/check/.online
     state: touch
-    mode: '0777'
+    mode: "0777"
     owner: "{{ user }}"
     group: "{{ user }}"
 
-- name: sleep for 3 seconds and continue with play
-  ansible.builtin.wait_for: timeout=3
+- name: Sleep for 3 seconds and continue with play
+  ansible.builtin.wait_for:
+    timeout: 3
   delegate_to: localhost
