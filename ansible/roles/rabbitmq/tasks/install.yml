@@ -15,7 +15,7 @@
   ansible.builtin.get_url:
     url: "https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-server/gpg.9F4587F226208342.key"
     dest: "/usr/share/keyrings/rabbitmq.9F4587F226208342.asc"
-    mode: 0644
+    mode: "0644"
     force: true
   tags: install
 
@@ -23,7 +23,7 @@
   ansible.builtin.get_url:
     url: "https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-erlang.E495BB49CC4BBE5B.key"
     dest: "/usr/share/keyrings/rabbitmq.E495BB49CC4BBE5B.gpg"
-    mode: 0644
+    mode: "0644"
     force: true
   tags: install
 
@@ -31,7 +31,7 @@
   ansible.builtin.get_url:
     url: "https://github.com/rabbitmq/signing-keys/releases/download/3.0/cloudsmith.rabbitmq-server.9F4587F226208342.key"
     dest: "/usr/share/keyrings/rabbitmq.9F4587F226208342.gpg"
-    mode: 0644
+    mode: "0644"
     force: true
   tags: install
 
@@ -95,14 +95,14 @@
     state: directory
     owner: root
     group: root
-    mode: 0755
+    mode: "0755"
   tags: install
 
 - name: Set LimitNOFILE
   ansible.builtin.copy:
     src: limits.conf
     dest: "/etc/systemd/system/rabbitmq-server.service.d/limits.conf"
-    mode: 0644
+    mode: "0644"
     owner: root
     group: root
   tags: install
@@ -116,7 +116,7 @@
     dest: /var/lib/rabbitmq/.erlang.cookie
     owner: rabbitmq
     group: rabbitmq
-    mode: 0400
+    mode: "0400"
   tags: install
   notify: Restart Rabbitmq
 
@@ -130,7 +130,7 @@
   ansible.builtin.template:
     src: rabbitmq.conf.j2
     dest: /etc/rabbitmq/rabbitmq.conf
-    mode: 0644
+    mode: "0644"
     owner: rabbitmq
     group: rabbitmq
   notify: Restart Rabbitmq
@@ -140,7 +140,7 @@
   ansible.builtin.template:
     src: rabbitmq-env.conf.j2
     dest: /etc/rabbitmq/rabbitmq-env.conf
-    mode: 0644
+    mode: "0644"
     owner: rabbitmq
     group: rabbitmq
   notify: Restart Rabbitmq
@@ -150,7 +150,7 @@
   ansible.builtin.copy:
     src: logrotate
     dest: /etc/logrotate.d/rabbitmq-server
-    mode: 0644
+    mode: "0644"
     user: root
     group: root
   tags: install
