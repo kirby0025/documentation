@@ -1,10 +1,10 @@
 ---
 
-fb_version: "2.32.0"
-fb_user: "admin"
-fb_group: "admin"
-fb_port: "8080"
-fb_address: "0.0.0.0"
-fb_log_dir: "/var/log/filebrowser"
-fb_config_dir: "/etc/filebrowser"
-fb_root: "/nas/{{ env_long }}"
+filebrowser_version: "2.32.0"
+filebrowser_user: "admin"
+filebrowser_group: "admin"
+filebrowser_port: "8080"
+filebrowser_address: "0.0.0.0"
+filebrowser_log_dir: "/var/log/filebrowser"
+filebrowser_config_dir: "/etc/filebrowser"
+filebrowser_root: "/nas/{{ env_long }}"
