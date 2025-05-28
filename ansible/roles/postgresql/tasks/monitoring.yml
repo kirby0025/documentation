@@ -1,0 +1,77 @@
+---
+
+- name: Setting up pg_hba conf for monitoring users
+  community.postgresql.postgresql_pg_hba:
+    dest: "{{ postgresql_default_data_dir }}/pg_hba.conf"
+    contype: host
+    source: 127.0.0.1
+    users: monitoring
+    databases: all
+    method: scram-sha-256
+    create: true
+  become: true
+  become_user: postgres
+  tags: config,monitoring
+
+- name: Creating monitoring user
+  community.postgresql.postgresql_user:
+    name: "{{ postgresql_monitoring_user }}"
+    password: "{{ postgresql_monitoring_password }}"
+  become: true
+  become_user: postgres
+  tags: config,monitoring
+
+- name: Granting privileges to monitoring user
+  community.postgresql.postgresql_privs:
+    database: postgres
+    type: group
+    roles: "{{ postgresql_monitoring_user }}"
+    objs: "pg_monitor"
+    state: present
+  become: true
+  become_user: postgres
+  tags: config,monitoring
+
+- name: Deploying checkmk config file
+  ansible.builtin.template:
+    src: "postgres.cfg.j2"
+    dest: "/etc/check_mk/postgres.cfg"
+    owner: root
+    group: root
+    mode: "0644"
+  tags: config,monitoring
+
+- name: Deploying checkmk mk_postgres.py
+  ansible.builtin.get_url:
+    url: "https://{{ postgres_cmk_url }}/check_mk/agents/plugins/mk_postgres.py"
+    dest: "/usr/lib/check_mk_agent/plugins/mk_postgres.py"
+    owner: root
+    group: root
+    mode: "0755"
+  tags: config,monitoring
+
+- name: Installing percona tools repo
+  ansible.builtin.apt:
+    deb: https://repo.percona.com/apt/percona-release_latest.{{ ansible_distribution_release }}_all.deb
+  tags: config,monitoring
+
+- name: Installation pmm2-client
+  ansible.builtin.apt:
+    update_cache: true
+    pkg: pmm2-client
+    state: present
+  tags: config,monitoring
+
+- name: Register on pmm server
+  ansible.builtin.command:
+    cmd: pmm-admin config --server-insecure-tls --server-url=https://{{ postgresql_pmm_server_username }}:{{ postgresql_pmm_server_password }}@{{ postgresql_pmm_server }}:443
+  register: register_server
+  changed_when: register_server.rc != 0
+  tags: pmm_register
+
+- name: Adding Postgresql to pmm
+  ansible.builtin.command:
+    cmd: pmm-admin add postgresql --username={{ postgresql_pmm_client_username }} --password={{ postgresql_pmm_client_password }}
+  register: add_server
+  changed_when: add_server.rc != 0
+  tags: pmm_register

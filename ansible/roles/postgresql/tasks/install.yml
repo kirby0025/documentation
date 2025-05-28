@@ -1,0 +1,125 @@
+---
+
+- name: Install requirements
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - gnupg
+    - curl
+    - apt-transport-https
+    - debian-keyring
+    - python3-psycopg2
+  tags: install,conf
+
+- name: Import postgres key
+  ansible.builtin.get_url:
+    url: "https://www.postgresql.org/media/keys/ACCC4CF8.asc"
+    dest: "/usr/share/keyrings/postgres.ACCC4CF8.asc"
+    mode: "0644"
+    force: true
+  tags: install
+
+- name: Add Postgres repository
+  ansible.builtin.apt_repository:
+    filename: postgres
+    repo: "deb [signed-by=/usr/share/keyrings/postgres.ACCC4CF8.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main"
+  tags: install,conf
+
+- name: Install Postgresql
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  tags: install,conf
+  with_items:
+    - postgresql
+    - postgresql-client
+    - libpq-dev
+
+- name: Holding postgres packages
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  with_items:
+    - postgresql
+    - postgresql-client
+    - libpq-dev
+    - python3-psycopg2
+  tags: install,conf
+
+- name: Deploy systemd service file
+  ansible.builtin.copy:
+    src: postgresql.service
+    dest: "/lib/systemd/system/postgresql.service"
+    mode: "0644"
+    owner: root
+    group: root
+  tags: install
+  notify:
+    - Daemon_reload
+    - Restart Postgres
+
+- name: Deploy Postgresql config file
+  ansible.builtin.copy:
+    src: "postgresql.conf"
+    dest: "/etc/postgresql/16/main/postgresql.conf"
+    owner: postgres
+    group: postgres
+    mode: "0644"
+  tags: install,conf
+  notify: Restart Postgres
+
+- name: Enable and start postgres service
+  ansible.builtin.systemd_service:
+    name: postgresql.service
+    state: started
+    enabled: true
+
+- name: Setting up pg_hba conf for postgres
+  community.postgresql.postgresql_pg_hba:
+    dest: "{{ postgresql_default_data_dir }}/pg_hba.conf"
+    contype: local
+    databases: all
+    users: postgres
+    method: peer
+    create: true
+  become: true
+  become_user: postgres
+  tags: install
+
+- name: Setting up pg_hba conf for replica
+  community.postgresql.postgresql_pg_hba:
+    dest: "{{ postgresql_default_data_dir }}/pg_hba.conf"
+    contype: host
+    databases: replication
+    source: "{{ item }}"
+    users: replica
+    method: scram-sha-256
+    create: true
+  become: true
+  become_user: postgres
+  with_items: "{{ postgresql_replication_networks }}"
+  tags: install
+
+- name: Creating replica users
+  community.postgresql.postgresql_user:
+    name: "{{ postgresql_replication_user }}"
+    password: "{{ postgresql_replication_password }}"
+    role_attr_flags: "REPLICATION"
+  become: true
+  become_user: postgres
+  tags: install
+
+- name: Setting up pg_hba conf for ILG/APP users
+  community.postgresql.postgresql_pg_hba:
+    dest: "{{ postgresql_default_data_dir }}/pg_hba.conf"
+    contype: host
+    users: all
+    source: "{{ item }}"
+    databases: all
+    method: scram-sha-256
+    create: true
+  with_items: "{{ postgresql_users_networks }}"
+  become: true
+  become_user: postgres
+  tags: install

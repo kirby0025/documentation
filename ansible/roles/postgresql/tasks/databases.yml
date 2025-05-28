@@ -1,0 +1,33 @@
+---
+
+- name: Create databases
+  community.postgresql.postgresql_db:
+    name: "{{ item.name }}"
+    owner: "{{ item.owner | default('postgres') }}"
+  become: true
+  become_user: postgres
+  loop: "{{ postgresql_databases }}"
+  tags: databases
+
+- name: Create schemas in databases
+  community.postgresql.postgresql_schema:
+    name: "{{ item.1.name }}"
+    db: "{{ item.0.name }}"
+    owner: "{{ item.1.owner | default('postgres') }}"
+    comment: "{{ item.comment | default('') }}"
+  become: true
+  become_user: postgres
+  loop: "{{ postgresql_databases | subelements('schemas') }}"
+  tags: databases
+
+- name: Grant usage on new schemas to public role
+  community.postgresql.postgresql_privs:
+    database: "{{ item.0.name }}"
+    objs: "{{ item.1.name }}"
+    type: "schema"
+    privs: "USAGE"
+    role: "public"
+  become: true
+  become_user: postgres
+  loop: "{{ postgresql_databases | subelements('schemas') }}"
+  tags: databases

@@ -1,0 +1,21 @@
+---
+
+postgresql_default_data_dir: "/var/lib/postgresql/17/main"
+
+postgresql_pmm_client_username: "{{ lookup('hashi_vault', 'ansible/data/postgresql/pmm/{{ env }}/{{ postgresql_monitoring_user }}:pmm_client_username') }}"
+postgresql_pmm_client_password: "{{ lookup('hashi_vault', 'ansible/data/postgresql/pmm/{{ env }}/{{ postgresql_monitoring_user }}:pmm_client_password') }}"
+postgresql_pmm_server: "{{ lookup('hashi_vault', 'ansible/data/postgresql/pmm/server:pmm_server') }}"
+postgresql_pmm_server_username: "{{ lookup('hashi_vault', 'ansible/data/postgresql/pmm/server:pmm_server_username') }}"
+postgresql_pmm_server_password: "{{ lookup('hashi_vault', 'ansible/data/postgresql/pmm/server:pmm_server_password') }}"
+
+postgresql_monitoring_user: "monitoring"
+postgresql_monitoring_password: "{{ lookup('hashi_vault', 'ansible/data/postgresql/{{ env }}/monitoring:password') }}"
+
+postgresql_backup_user: "backup"
+postgresql_backup_password: "{{ lookup('hashi_vault', 'ansible/data/postgresql/{{ env }}/backup:password') }}"
+
+postgresql_replication_user: "replica"
+postgresql_replication_password: "{{ lookup('hashi_vault', 'ansible/data/postgresql/{{ env }}/replica:password') }}"
+
+postgresql_admin_role_attr_flags: "CREATEDB,CREATEROLE,NOSUPERUSER"
+postgresql_cmk_url: ""

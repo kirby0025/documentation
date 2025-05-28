@@ -1,0 +1,90 @@
+---
+
+- name: Install dependencies
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - gnupg2
+    - lsb-release
+    - nfs-common
+  tags: install,config,backup
+
+- name: Setting up pg_hba conf for backup user
+  community.postgresql.postgresql_pg_hba:
+    dest: "{{ postgresql_default_data_dir }}/pg_hba.conf"
+    contype: host
+    users: backup
+    source: "127.0.0.1"
+    databases: all
+    method: scram-sha-256
+    create: true
+  become: true
+  become_user: postgres
+  tags: install,config,backup
+
+- name: Creating backup user
+  community.postgresql.postgresql_user:
+    name: "{{ postgresql_backup_user }}"
+    password: "{{ postgresql_backup_password }}"
+  become: true
+  become_user: postgres
+  tags: install,config,backup
+
+- name: Ensure needed directory exists
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: "0755"
+    owner: root
+    group: root
+    state: directory
+  loop:
+    - "/data/scripts/"
+    - "/nas/"
+  tags: install,config,backup
+
+- name: Setting up mount point for nas
+  ansible.posix.mount:
+    path: "/nas"
+    src: "{{ postgresql_nfs_server }}:/data/shares/postgresql"
+    fstype: "nfs4"
+    opts: "rw,noatime,nodiratime,_netdev"
+    state: mounted
+  tags: install,config,backup
+
+- name: Deploying pgpass for backup user
+  ansible.builtin.template:
+    src: "pgpass-backup.j2"
+    dest: "/root/.pgpass"
+    owner: root
+    group: root
+    mode: "0600"
+  tags: install,config,backup
+
+- name: Deploying backup script
+  ansible.builtin.template:
+    src: "postgresql-dump-full.sh.j2"
+    dest: "/data/scripts/postgresql-dump-full.sh"
+    owner: root
+    group: root
+    mode: "0700"
+  tags: install,config,backup
+
+- name: Setting up cron for backup
+  ansible.builtin.cron:
+    name: "postgresql backup"
+    minute: "0"
+    hour: "14"
+    job: "/data/scripts/postgresql-dump-full.sh -r 10 -d /nas -c"
+    user: root
+    cron_file: postgresql-backup
+    state: present
+    disabled: true
+  tags: install,config,backup
+
+- name: Adding line to mrpe.cfg
+  ansible.builtin.lineinfile:
+    path: "/etc/check_mk/mrpe.cfg"
+    regexp: "^#postgresql_dump"
+    line: "#postgresql_dump /usr/local/nagios/plugins/check_batch postgresql-dump-full.sh 129600"
+  tags: install,config,backup
