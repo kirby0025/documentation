@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: php-fpm-exporters
+spec:
+  endpoints:
+    - interval: 15s
+      port: php-fpm-exporter
+      scheme: http
+      scrapeTimeout: 14s
+  namespaceSelector:
+    any: true
+  selector:
+    matchLabels:
+      k8s.example.com/php-fpm-exporter-scrape: 'true'

@@ -1,0 +1,26 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageUpdateAutomation
+metadata:
+  name: ${service_name}
+  labels:
+    team: ${team}
+spec:
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        email: fluxcdbot@example.com
+        name: fluxcdbot
+      messageTemplate: 'deps(apps/${env_full}): {{ .AutomationObject }} ImageUpdateAutomation'
+    push:
+      branch: ${project_branch_iua_destination}
+  interval: 3m0s
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  update:
+    path: ./apps/${env_full}/${namespace}/${service_name}
+    strategy: Setters

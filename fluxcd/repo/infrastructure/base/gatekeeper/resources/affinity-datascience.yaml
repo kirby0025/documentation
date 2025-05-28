@@ -1,0 +1,47 @@
+apiVersion: mutations.gatekeeper.sh/v1
+kind: Assign
+metadata:
+  name: affinity-datascience
+spec:
+  applyTo:
+  - groups:
+    - ""
+    kinds:
+    - Pod
+    versions:
+    - v1
+  location: spec.affinity
+  match:
+    kinds:
+    - apiGroups:
+      - '*'
+      kinds:
+      - Pod
+    labelSelector:
+      matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+        - disigas
+        - dilre
+        - difunds
+        - dicaplink
+        - dimatchdom
+        - dimatchname
+        - discoring
+        - dijal
+        - procol
+    namespaces:
+    - privateapi
+    scope: Namespaced
+  parameters:
+    assign:
+      value:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: InstanceUsage
+                operator: In
+                values:
+                - datascience

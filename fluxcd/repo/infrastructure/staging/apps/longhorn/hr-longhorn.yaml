@@ -1,0 +1,19 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: longhorn
+spec:
+  chart:
+    spec:
+      chart: longhorn
+      reconcileStrategy: ChartVersion
+      version: "1.8.x"
+      sourceRef:
+        kind: HelmRepository
+        name: longhorn-repo
+        namespace: infrastructure
+  interval: 10m0s
+  values:
+    ingress:
+      host: "longhorn.stg.example.com"

@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: python-metrics
+spec:
+  endpoints:
+    - interval: 15s
+      port: metrics
+      path: /metrics
+      scheme: http
+      scrapeTimeout: 14s
+  namespaceSelector:
+    any: true
+  selector:
+    matchLabels:
+      k8s.example.com/python-metrics-scrape: 'true'

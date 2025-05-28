@@ -1,0 +1,29 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ${project_name}
+  labels:
+    team: ${team}
+spec:
+  chart:
+    spec:
+      chart: myChart
+      reconcileStrategy: ChartVersion
+      version: "2.x.x"
+      sourceRef:
+        kind: HelmRepository
+        name: myChart
+        namespace: infrastructure
+  interval: 10m0s
+  values:
+    environment: "${env}"
+    app:
+      image:
+        tag: 1.0.0-rc.1 # {"§imagepolicy": "${namespace}:${project_name}:tag"}
+    nginx:
+      parameters:
+        serverName: "REPLACE_ME"
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 4

@@ -1,0 +1,35 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: prometheus
+spec:
+  install:
+    crds: CreateReplace
+  upgrade:
+    crds: CreateReplace
+    remediation:
+      retries: -1
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      version: "70.x.x"
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: infrastructure
+  interval: 30m0s
+  values:
+    prometheus:
+      prometheusSpec:
+        externalLabels:
+          source: prometheus-k8s-stg
+
+      ingress:
+        enabled: true
+        ingressClassName: traefik
+        hosts:
+          - kube-prometheus.stg.example.com
+        paths:
+          - /
+        pathType: Prefix

@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: http-broadcaster
+spec:
+  endpoints:
+  - interval: 30s
+    port: web
+    scheme: http
+    scrapeTimeout: 29s
+  namespaceSelector:
+    any: true
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: "http-broadcaster"

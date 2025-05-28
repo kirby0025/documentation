@@ -1,0 +1,10 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: myOrg
+spec:
+  secretRef:
+    name: helm-registry-gitlab
+  interval: 10m0s
+  url: https://gitlab.example.com/api/v4/projects/<projectID>/packages/helm/stable

@@ -1,0 +1,14 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: ${project_name}
+  labels:
+    type: apps
+    team: ${team}
+spec:
+  secretRef:
+    name: registry-credentials
+  image: REPLACE_ME
+  interval: 5m0s
+  exclusionList:
+    - "_dev§"

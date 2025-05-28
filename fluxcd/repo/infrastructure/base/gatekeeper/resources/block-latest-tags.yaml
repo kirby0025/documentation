@@ -1,0 +1,23 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: DisallowedTags
+metadata:
+  name: block-latest-tags
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    namespaces:
+    - data-entry-management
+    - diffusion
+    - digital-marketing
+    - privateapi
+    - produits
+    - smartexchange
+    - vidocq
+    - flux-system
+    - infrastructure
+    scope: Namespaced
+  parameters:
+    tags: ["latest"]
+    exemptImages: []

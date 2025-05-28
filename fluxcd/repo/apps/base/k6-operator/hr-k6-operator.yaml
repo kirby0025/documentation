@@ -1,0 +1,59 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: k6-operator
+spec:
+  chart:
+    spec:
+      # https://github.com/grafana/k6-operator/blob/main/charts/k6-operator/values.yaml
+      chart: k6-operator
+      reconcileStrategy: ChartVersion
+      version: "3.x.x"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: infrastructure
+  interval: 10m0s
+
+  values:
+    fullnameOverride: "k6-operator"
+    customLabels:
+      team: "infrastructure"
+
+    manager:
+      replicas: 1
+      serviceAccount:
+        name: "k6-operator-controller"
+        create: true
+      image:
+        registry: ghcr.io
+        repository: grafana/k6-operator
+        tag: controller-v0.0.19
+        pullPolicy: IfNotPresent
+
+      livenessProbe: {}
+      readinessProbe: {}
+
+      resources:
+        limits:
+          cpu: 100m
+          memory: 100Mi
+        requests:
+          cpu: 100m
+          memory: 100Mi
+      env:
+        # Indique que seul le namespace infrastructure est surveille.
+        - name: WATCH_NAMESPACE
+          value: 'infrastructure'
+
+    authProxy:
+      # Disable/Enable authentication on metric endpoint
+      enabled: false
+
+    installCRDs: true
+    namespace:
+      create: false
+
+    prometheus:
+      enabled: false

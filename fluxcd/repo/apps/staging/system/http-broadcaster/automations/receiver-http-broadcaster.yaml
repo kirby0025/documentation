@@ -1,0 +1,15 @@
+apiVersion: notification.toolkit.fluxcd.io/v1
+kind: Receiver
+metadata:
+  name: http-broadcaster-app
+spec:
+  type: generic
+  secretRef:
+    name: webhook-receiver-token
+  resources:
+    - apiVersion: image.toolkit.fluxcd.io/v1beta1
+      kind: ImageRepository
+      name: http-broadcaster-app
+    - apiVersion: image.toolkit.fluxcd.io/v1beta2
+      kind: ImageUpdateAutomation
+      name: http-broadcaster

@@ -1,0 +1,32 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: longhorn
+spec:
+  chart:
+    spec:
+      chart: longhorn
+      reconcileStrategy: ChartVersion
+      version: "1.8.x"
+      sourceRef:
+        kind: HelmRepository
+        name: longhorn-repo
+        namespace: infrastructure
+  interval: 10m0s
+  # https://github.com/longhorn/charts/blob/v1.8.x/charts/longhorn/values.yaml
+  values:
+
+    defaultBackupStore:
+      backupTarget: "s3://ilg-longhorn-backup-inf@fr-par/"
+      backupTargetCredentialSecret: "longhorn-s3-backup-secret"
+
+    ingress:
+      enabled: true
+      ingressClassName: "traefik"
+      annotations:
+        "traefik.ingress.kubernetes.io/router.middlewares": infrastructure-longhorn-dashboard-basic-auth@kubernetescrd
+
+    metrics:
+      serviceMonitor:
+        enabled: true

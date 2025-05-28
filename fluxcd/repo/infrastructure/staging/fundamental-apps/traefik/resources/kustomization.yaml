@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: infrastructure
+resources:
+  - middleware-traefik-dashboard-basic-auth.yaml
+  - middleware-longhorn-dashboard-basic-auth.yaml
+  - secret-traefik-dashboard-basic-auth.yaml
+  - secret-longhorn-dashboard-basic-auth.yaml
+  - ingress-route-public-dashboard-stg.yaml
+  - ingress-route-public-webservice.yaml
+  - ingress-route-prometheus-pushgateway.yaml

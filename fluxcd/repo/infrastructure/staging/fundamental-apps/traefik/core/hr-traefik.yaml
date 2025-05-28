@@ -1,0 +1,255 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: traefik
+spec:
+  chart:
+    spec:
+      chart: traefik
+      reconcileStrategy: ChartVersion
+      version: "35.x.x"
+      sourceRef:
+        kind: HelmRepository
+        name: traefik
+        namespace: infrastructure
+  interval: 10m0s
+  values:
+    image:
+      registry: docker.io
+      repository: traefik
+      tag: ""
+      pullPolicy: IfNotPresent
+
+    commonLabels: {}
+
+    deployment:
+      enabled: true
+      # -- Deployment or DaemonSet
+      kind: DaemonSet
+      # -- Number of pods of the deployment (only applies when kind == Deployment)
+      replicas: 1
+      terminationGracePeriodSeconds: 60
+      minReadySeconds: 0
+
+      dnsConfig:
+        options:
+          - name: ndots
+            value: '1'
+
+    ingressClass:
+      enabled: true
+      isDefaultClass: true
+      name: "traefik"
+
+    ingressRoute:
+      dashboard:
+        enabled: true
+        annotations: {}
+        labels: {}
+        matchRule: PathPrefix(`/dashboard`) || PathPrefix(`/api`)
+        # By default, it's using traefik entrypoint, which is not exposed.
+        # /!\ Do not expose your dashboard without any protection over the internet /!\
+        entryPoints: ["traefik"]
+        middlewares: []
+      healthcheck:
+        enabled: true
+        annotations: {}
+        labels: {}
+        matchRule: PathPrefix(`/ping`)
+        entryPoints: ["traefik", "web", "websecure"]
+        middlewares: []
+
+    updateStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: 1
+        maxSurge: null
+
+    providers:
+      kubernetesCRD:
+        enabled: true
+        # -- Allows IngressRoute to reference resources in namespace other than theirs
+        allowCrossNamespace: false
+        # -- Allows to reference ExternalName services in IngressRoute
+        allowExternalNameServices: false
+        # -- Allows to return 503 when there is no endpoints available
+        allowEmptyServices: false
+        # -- Array of namespaces to watch. If left empty, Traefik watches all namespaces.
+        namespaces: []
+        # - "default"
+
+      kubernetesIngress:
+        enabled: true
+        # -- Allows to reference ExternalName services in Ingress
+        allowExternalNameServices: false
+        # -- Allows to return 503 when there is no endpoints available
+        allowEmptyServices: false
+        # -- Array of namespaces to watch. If left empty, Traefik watches all namespaces.
+        namespaces: []
+        # - "default"
+        # IP used for Kubernetes Ingress endpoints
+        publishedService:
+          enabled: false
+          # Published Kubernetes Service to copy status from. Format: namespace/servicename
+          # By default this Traefik service
+          # pathOverride: ""
+
+    logs:
+      general:
+        # -- Alternative logging levels are DEBUG, PANIC, FATAL, ERROR, WARN, and INFO.
+        level: ERROR
+      access:
+        enabled: true
+        # format: json
+        # bufferingSize: 100
+        ## Filtering
+        # -- https://docs.traefik.io/observability/access-logs/#filtering
+        filters: {}
+        # statuscodes: "200,300-302"
+        # retryattempts: true
+        # minduration: 10ms
+        fields:
+          general:
+            # -- Available modes: keep, drop, redact.
+            defaultmode: keep
+            # -- Names of the fields to limit.
+            names: {}
+            ## Examples:
+            # ClientUsername: drop
+          headers:
+            # -- Available modes: keep, drop, redact.
+            defaultmode: drop
+            # -- Names of the headers to limit.
+            names: {}
+            ## Examples:
+            # User-Agent: redact
+            # Authorization: drop
+            # Content-Type: keep
+
+    metrics:
+      prometheus:
+        entryPoint: metrics
+        service:
+          enabled: true
+        serviceMonitor:
+          enabled: true
+          metricRelabelings: []
+          relabelings: []
+          jobLabel: traefik
+          interval: 30s
+          honorLabels: true
+
+    globalArguments:
+    - "--global.checknewversion"
+
+    additionalArguments:
+      - "--entryPoints.web.forwardedHeaders.trustedIPs=10.0.0.0/8"
+      - "--entryPoints.websecure.forwardedHeaders.trustedIPs=10.0.0.0/8"
+
+    ports:
+      traefik:
+        port: 9000
+        # -- You SHOULD NOT expose the traefik port on production deployments.
+        # If you want to access it from outside your cluster,
+        # use `kubectl port-forward` or create a secure ingress
+        expose:
+          default: false
+          internal: false
+        exposedPort: 9000
+        protocol: TCP
+      web:
+        port: 8000
+        hostPort: 80
+        # containerPort: 8000
+        expose:
+          default: true
+          internal: false
+        exposedPort: 80
+        protocol: TCP
+      websecure:
+        port: 8443
+        hostPort: 443
+        expose:
+          default: true
+          internal: false
+        exposedPort: 443
+        protocol: TCP
+        http3:
+          enabled: false
+        middlewares: []
+      metrics:
+        port: 9100
+        expose:
+          default: false
+          internal: false
+        exposedPort: 9100
+        protocol: TCP
+
+    service:
+      enabled: true
+      single: true
+      type: ClusterIP
+      annotations: {}
+      annotationsTCP: {}
+      annotationsUDP: {}
+      labels: {}
+
+    autoscaling:
+      enabled: false
+
+    # -- If hostNetwork is true, runs traefik in the host network namespace
+    # To prevent unschedulabel pods due to port collisions, if hostNetwork=true
+    # and replicas>1, a pod anti-affinity is recommended and will be set if the
+    # affinity is left as default.
+    hostNetwork: false
+
+    # -- Whether Role Based Access Control objects like roles and rolebindings should be created
+    rbac:
+      enabled: true
+      # If set to false, installs ClusterRole and ClusterRoleBinding so Traefik can be used across namespaces.
+      # If set to true, installs Role and RoleBinding. Providers will only watch target namespace.
+      namespaced: false
+      # Enable user-facing roles
+      # https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles
+      # aggregateTo: [ "admin" ]
+
+    # -- Enable to create a PodSecurityPolicy and assign it to the Service Account via RoleBinding or ClusterRoleBinding
+    podSecurityPolicy:
+      enabled: false
+
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "150Mi"
+      limits:
+        memory: "150Mi"
+
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: '{{ template "traefik.name" . }}'
+                app.kubernetes.io/instance: '{{ .Release.Name }}-{{ .Release.Namespace }}'
+            topologyKey: kubernetes.io/hostname
+
+    priorityClassName: "system-cluster-critical"
+
+    securityContext:
+      capabilities:
+        drop: [ALL]
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+
+    podSecurityContext:
+      fsGroupChangePolicy: "OnRootMismatch"
+      runAsGroup: 65532
+      runAsNonRoot: true
+      runAsUser: 65532
+
+    tolerations:
+      - effect: NoSchedule
+        key: InstanceUsage
+        operator: Equal
+        value: datascience

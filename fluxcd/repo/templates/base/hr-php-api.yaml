@@ -1,0 +1,203 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ${project_name}
+spec:
+  chart:
+    spec:
+      chart: myChart
+      reconcileStrategy: ChartVersion
+      version: "2.x.x"
+      sourceRef:
+        kind: HelmRepository
+        name: myChart
+        namespace: infrastructure
+  interval: 10m0s
+  values:
+    environment:
+    fullnameOverride: "${project_name}"
+    team: "${team}"
+
+    app:
+      name: "php"
+
+      paths:
+        logs: "/app/var/log/"
+
+      image:
+        repository: REPLACE_ME
+        pullPolicy: IfNotPresent
+        tag:
+
+      labels:
+        technology: "php"
+        role: "api"
+      logs:
+        containerized: true
+
+      resources:
+        requests:
+          cpu: REPLACE_ME
+          memory: REPLACE_ME
+          ephemeral-storage: 128Mi
+        limits:
+          cpu: REPLACE_ME
+          memory: REPLACE_ME
+          ephemeral-storage: 2048Mi
+
+      containerPort:
+        phpfpm: 9000
+
+      readinessProbe:
+        exec:
+          command:
+            - curl
+            - -f
+            - -L
+            - -m
+            - "5"
+            - "127.0.0.1/healthcheck"
+        initialDelaySeconds: 5
+        periodSeconds: 15
+        timeoutSeconds: 9
+        # successThreshold: 1
+        # failureThreshold: 3
+
+      livenessProbe:
+        exec:
+          command:
+            - curl
+            - -f
+            - -m
+            - "5"
+            - 127.0.0.1/status
+        initialDelaySeconds: 5
+        periodSeconds: 15
+        timeoutSeconds: 8
+        # successThreshold: 1
+        # failureThreshold: 5
+
+      command:
+        - "/bin/sh"
+        - "-c"
+        - "[ -f /vault/secrets/.env ] && cp /vault/secrets/.env /app/.env;
+          composer dump-env §APP_ENV;
+          php bin/console cache:clear -n;
+          php-fpm;"
+
+      lifecycle:
+        postStart:
+          exec:
+            command:
+              - "/bin/sh"
+              - "-c"
+              - "cp -r /app/public /var/www/html/"
+        preStop:
+          exec:
+            command:
+              - "/bin/sh"
+              - "-c"
+              - "sleep 1 && kill -SIGQUIT 1"
+
+      securityContext:
+        #capabilities:
+        #  drop:
+        #    - ALL
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+    # Generic sidecars
+    nginx:
+      enabled: true
+
+      paths:
+        logs: "/app/log/nginx/"
+
+      resources:
+        requests:
+          memory: 50Mi
+          cpu: 50m
+          # ephemeral-storage: 128Mi
+        limits:
+          memory: 80Mi
+          cpu: 250m
+          # ephemeral-storage: 128Mi
+
+      readinessProbe:
+        exec:
+          command:
+            - curl
+            - -f
+            - -m
+            - "4"
+            - 127.0.0.1/ping
+        initialDelaySeconds: 5
+        periodSeconds: 15
+        timeoutSeconds: 6
+        # successThreshold: 1
+        # failureThreshold: 3
+
+      livenessProbe:
+        exec:
+          command:
+            - curl
+            - -f
+            - -m
+            - "4"
+            - 127.0.0.1/nginx_status
+        initialDelaySeconds: 5
+        periodSeconds: 30
+        timeoutSeconds: 6
+        # successThreshold: 1
+        # failureThreshold: 5
+
+      lifecycle:
+        preStop:
+          exec:
+            command:
+              - /usr/sbin/nginx
+              - -s
+              - quit
+
+      # Only "php" is available
+      config: "php"
+
+      parameters:
+        serverName:
+        rootUrl: ""
+        clientMaxBodySize:
+
+      autoIngress: true
+
+    fpmExporter:
+      enabled: true
+
+    # Observability sidecars
+    elasticAgent:
+      enabled: false
+    logrotate:
+      enabled: false
+
+    imagePullSecrets:
+      - name: registry-credentials
+
+    vault:
+      enabled: true
+
+    serviceAccount:
+      create: true
+
+    ingress:
+      enabled: true
+
+    replicaCount: 2
+
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 4
+      targetCPUUtilizationPercentage: 40

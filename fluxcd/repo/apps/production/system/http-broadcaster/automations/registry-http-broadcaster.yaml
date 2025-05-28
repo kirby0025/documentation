@@ -1,0 +1,13 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: http-broadcaster
+  labels:
+    team: system
+spec:
+  secretRef:
+    name: registry-credentials
+  image: gitlabregistry.example.com/infrastructure/http-broadcaster
+  interval: 5m0s
+  exclusionList:
+    - "_dev$"

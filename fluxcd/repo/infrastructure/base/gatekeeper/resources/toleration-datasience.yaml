@@ -1,0 +1,44 @@
+apiVersion: mutations.gatekeeper.sh/v1
+kind: Assign
+metadata:
+  name: toleration-datascience
+spec:
+  applyTo:
+  - groups:
+    - ""
+    kinds:
+    - Pod
+    versions:
+    - v1
+  location: spec.tolerations
+  match:
+    kinds:
+    - apiGroups:
+      - '*'
+      kinds:
+      - Pod
+    labelSelector:
+      matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+        - disigas
+        - dilre
+        - difunds
+        - dicaplink
+        - dimatchdom
+        - dimatchname
+        - discoring
+        - dijal
+        - procol
+    namespaces:
+    - privateapi
+    scope: Namespaced
+  parameters:
+    assign:
+      value:
+      - effect: NoSchedule
+        key: InstanceUsage
+        operator: Equal
+        value: datascience
+

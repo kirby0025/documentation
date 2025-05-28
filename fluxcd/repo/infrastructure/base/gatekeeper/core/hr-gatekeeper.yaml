@@ -1,0 +1,27 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: gatekeeper
+  namespace: gatekeeper
+spec:
+  chart:
+    spec:
+      chart: gatekeeper
+      reconcileStrategy: ChartVersion
+      version: "3.13.x"
+      sourceRef:
+        kind: HelmRepository
+        name: gatekeeper
+        namespace: infrastructure
+  interval: 10m0s
+  values:
+    replicas: 1
+    enableTLSHealthcheck: true
+    logDenies: true
+    logMutations: true
+    controllerManager:
+      exemptNamespaces: ["infrastructure"]
+    postInstall:
+      labelNamespace:
+        enabled: false

@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: infrastructure
+resources:
+  - affinity-datascience.yaml
+  - block-latest-tags.yaml
+  - disallowed-tags.yaml
+  - ndots-dns.yaml
+  - toleration-datasience.yaml
+  - gatekeeper-podmonitor.yaml

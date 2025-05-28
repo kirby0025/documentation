@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: php-metrics
+spec:
+  endpoints:
+    - interval: 15s
+      port: php-metrics
+      path: /metrics
+      scheme: http
+      scrapeTimeout: 14s
+  namespaceSelector:
+    any: true
+  selector:
+    matchLabels:
+      k8s.example.com/php-metrics-scrape: 'true'

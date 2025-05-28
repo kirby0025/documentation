@@ -1,0 +1,38 @@
+apiVersion: mutations.gatekeeper.sh/v1
+kind: Assign
+metadata:
+  name: ndots-dns
+spec:
+  applyTo:
+    - groups:
+        - ""
+      kinds:
+        - Pod
+      versions:
+        - v1
+  location: spec.dnsConfig
+  match:
+    kinds:
+      - apiGroups:
+          - '*'
+        kinds:
+          - Pod
+    namespaces:
+      - data-entry-management
+      - diffusion
+      - digital-marketing
+      - privateapi
+      - produits
+      - vidocq
+      - smartexchange
+      - identite-solvabilite
+      - alertes
+      - flux-system
+    scope: Namespaced
+  parameters:
+    assign:
+      value:
+        options:
+          - name: ndots
+            value: "1"
+          - name: no-aaaa

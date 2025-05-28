@@ -1,0 +1,28 @@
+---
+
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageUpdateAutomation
+metadata:
+  name: http-broadcaster
+  labels:
+    team: system
+spec:
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        email: fluxcdbot@example.com
+        name: fluxcdbot
+      messageTemplate: 'deps(apps/staging): {{ .AutomationObject }} ImageUpdateAutomation'
+    push:
+      branch: main
+  interval: 3m0s
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  update:
+    path: ./apps/staging/system/http-broadcaster
+    strategy: Setters

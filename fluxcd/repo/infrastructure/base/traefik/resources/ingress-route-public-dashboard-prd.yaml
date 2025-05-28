@@ -1,0 +1,18 @@
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: traefik-public-dashboard-prd
+spec:
+  entryPoints:
+    - websecure
+    - web
+  routes:
+    - match: (Host(`traefik-dashboard.example.com`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`)))
+      kind: Rule
+      middlewares:
+        - name: traefik-dashboard-basic-auth
+          namespace: infrastructure
+      services:
+        - name: api@internal
+          kind: TraefikService

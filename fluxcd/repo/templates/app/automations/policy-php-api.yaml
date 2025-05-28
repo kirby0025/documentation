@@ -1,0 +1,15 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImagePolicy
+metadata:
+  name: ${project_name}
+  labels:
+    team: ${team}
+spec:
+  imageRepositoryRef:
+    name: ${project_name}
+  filterTags:
+    pattern: '${policy_pattern}'
+    extract: '§rv'
+  policy:
+    semver:
+      range: '^1.x.x-0'

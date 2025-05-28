@@ -1,0 +1,130 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: keda
+spec:
+  chart:
+    spec:
+      chart: keda
+      sourceRef:
+        kind: HelmRepository
+        name: kedacore
+        namespace: infrastructure
+      version: "2.16.x"
+  install:
+    crds: Create
+  upgrade:
+    crds: CreateReplace
+  interval: 30m
+  values:
+    image:
+      keda:
+        repository: ghcr.io/kedacore/keda
+      metricsApiServer:
+        repository: ghcr.io/kedacore/keda-metrics-apiserver
+      webhooks:
+        repository: ghcr.io/kedacore/keda-admission-webhooks
+      pullPolicy: IfNotPresent
+
+    # -- Defines Kubernetes namespaces to watch to scale their workloads. Default watches all namespaces
+    watchNamespace: ""
+
+    operator:
+      # -- Capability to configure the number of replicas for KEDA operator.
+      # While you can run more replicas of our operator, only one operator instance will be the leader and serving traffic.
+      # You can run multiple replicas, but they will not improve the performance of KEDA, it could only reduce downtime during a failover.
+      # Learn more in [our documentation](https://keda.sh/docs/latest/operate/cluster/#high-availability).
+      replicaCount: 2
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - keda-operator
+            topologyKey: "kubernetes.io/hostname"
+
+    metricsServer:
+      replicaCount: 2
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - keda-operator-metrics-apiserver
+            topologyKey: "kubernetes.io/hostname"
+
+    webhooks:
+      enabled: true
+      replicaCount: 2
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - keda-operator
+            topologyKey: "kubernetes.io/hostname"
+
+      # -- [Failure policy](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#failure-policy) to use with KEDA admission webhooks
+      failurePolicy: Ignore
+
+    # We provides the default values that we describe in our docs:
+    # https://keda.sh/docs/latest/operate/cluster/
+    # If you want to specify the resources (or totally remove the defaults), change or comment the following
+    # lines, adjust them as necessary, or simply add the curly braces after 'operator' and/or 'metricServer'
+    # and remove/comment the default values
+    resources:
+      # -- Manage [resource request & limits] of KEDA operator pod
+      operator:
+        limits:
+          cpu: 1
+          memory: 1000Mi
+        requests:
+          cpu: 100m
+          memory: 1000Mi
+      # -- Manage [resource request & limits] of KEDA metrics apiserver pod
+      metricServer:
+        limits:
+          cpu: 1
+          memory: 1000Mi
+        requests:
+          cpu: 100m
+          memory: 1000Mi
+      # -- Manage [resource request & limits] of KEDA admission webhooks pod
+      webhooks:
+        limits:
+          cpu: 50m
+          memory: 1000Mi
+        requests:
+          cpu: 10m
+          memory: 1000Mi
+
+    tolerations: []
+    priorityClassName: ""
+
+    prometheus:
+      metricServer:
+        enabled: true
+        port: 8080
+        portName: metrics
+        serviceMonitor:
+          enabled: true
+      operator:
+        enabled: true
+        port: 8080
+        serviceMonitor:
+          enabled: true
+      webhooks:
+        enabled: true
+        port: 8080
+        serviceMonitor:
+          enabled: true
