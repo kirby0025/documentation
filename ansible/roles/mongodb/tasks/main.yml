@@ -1,0 +1,13 @@
+---
+
+- name: Include install tasks
+  ansible.builtin.include_tasks: install.yml
+  tags: install
+
+- name: Include supervision tasks
+  ansible.builtin.include_tasks: supervision.yml
+  tags: install,supervision
+
+- name: Include backup tasks
+  ansible.builtin.include_tasks: backup.yml
+  tags: install,backup

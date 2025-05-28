@@ -1,0 +1,10 @@
+[MONGODB]
+
+# all keys are optional
+host = 127.0.0.1
+# host defaults to localhost
+username = checkmk
+password = {{ lookup('community.hashi_vault.hashi_vault', 'ansible/data/mongodb/{{ env }}/users/checkmk:password') }}
+auth_source = admin
+# auth_source defaults to admin
+auth_mechanism = DEFAULT

@@ -1,0 +1,124 @@
+---
+
+- name: Install dependencies
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - gnupg2
+    - lsb-release
+    - nfs-common
+  tags: install,backup
+
+- name: Ensure nas directory exists
+  ansible.builtin.file:
+    path: /nas
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags: install,backup
+
+- name: Create backup custom role
+  community.mongodb.mongodb_role:
+    login_user: "admin"
+    login_password: "{{ lookup('community.hashi_vault.hashi_vault', 'ansible/data/mongodb/{{ env }}/admin:password') }}"
+    replica_set: "{{ mongodb_replicaset_name }}"
+    database: "admin"
+    name: "pbmAnyAction"
+    privileges:
+      - resource:
+          db: ""
+          collection: ""
+        actions:
+          - "anyAction"
+    roles:
+      - role: "backup"
+        db: "admin"
+      - role: "clusterMonitor"
+        db: "admin"
+      - role: "restore"
+        db: "admin"
+      - role: "readWrite"
+        db: "admin"
+    state: present
+  tags: install,backup
+
+- name: Create backup user
+  community.mongodb.mongodb_user:
+    login_user: "admin"
+    login_password: "{{ lookup('community.hashi_vault.hashi_vault', 'ansible/data/mongodb/{{ env }}/admin:password') }}"
+    replica_set: "{{ mongodb_replicaset_name }}"
+    database: "admin"
+    name: "backup"
+    password: "{{ lookup('community.hashi_vault.hashi_vault', 'ansible/data/mongodb/{{ env }}/users/backup:password') }}"
+    roles: "pbmAnyAction"
+    auth_mechanism: "SCRAM-SHA-256"
+    state: "present"
+    update_password: on_create
+  tags: install,backup
+
+- name: Add nas mounting to fstab
+  ansible.posix.mount:
+    src: "{{ mongodb_nfs_server_stg }}:/data/shares/mongodb"
+    path: "/nas"
+    fstype: "nfs4"
+    opts: "rw,noatime,nodiratime,_netdev"
+    state: present
+  when: dbenv = "stg"
+  tags: install,backup,nfs
+
+- name: Add nas mounting to fstab
+  ansible.posix.mount:
+    src: "{{ mongodb_nfs_server_prd }}:/data/shares/mongodb"
+    path: "/nas"
+    fstype: "nfs4"
+    opts: "rw,noatime,nodiratime,_netdev"
+    state: present
+  when: dbenv = "prd"
+  tags: install,backup,nfs
+
+- name: Ensure scripts directory exists
+  ansible.builtin.file:
+    path: /data/scripts
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags: install,backup
+
+- name: Deploy backup script
+  ansible.builtin.template:
+    src: mongodb-dump-full.sh.j2
+    dest: /data/scripts/mongodb-dump-full.sh
+    owner: root
+    group: root
+    mode: "0750"
+  tags: install,backup
+
+- name: Add cron to trigger backup
+  ansible.builtin.cron:
+    name: "mongodb-dump-full"
+    weekday: "*"
+    minute: "0"
+    hour: "02"
+    user: root
+    job: "/data/scripts/mongodb-dump-full.sh -r 14 -d /nas -c"
+    cron_file: mongodb-dump-full
+    disabled: true
+  tags: install,backup
+
+- name: Add MAILTO variable to cronfile
+  community.general.cronvar:
+    name: MAILTO
+    value: "''"
+    cron_file: mongodb-dump-full
+    state: present
+  tags: install,backup
+
+- name: Add check batch conf to checkmk
+  ansible.builtin.lineinfile:
+    path: /etc/check_mk/mrpe.cfg
+    line: "#script_mongodb-dump-databases.sh /usr/local/nagios/plugins/check_batch mongodb-dump-full.sh 129600"
+    state: present
+  tags: install,backup

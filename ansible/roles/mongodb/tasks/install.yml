@@ -1,0 +1,128 @@
+---
+
+- name: Install requirements
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - gnupg
+    - python3-pip
+  tags: install,conf,users
+
+- name: Installing pymongo via pip
+  ansible.builtin.pip:
+    name:
+      - pymongo
+  tags: install,conf,users
+
+- name: Deploy service to disable THP at boot
+  ansible.builtin.copy:
+    src: disable-thp.service
+    dest: /etc/systemd/system/disable-thp.service
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Systemd daemon_reload
+  tags: install
+
+- name: Enable disable-thp service
+  ansible.builtin.systemd:
+    name: disable-thp
+    enabled: true
+    masked: false
+  tags: install
+
+- name: Deploy sysctl conf (max_map_count, swappiness)
+  ansible.builtin.copy:
+    src: local.conf
+    dest: /etc/sysctl.d/local.conf
+    owner: root
+    group: root
+    mode: "0644"
+  tags: install,conf
+
+- name: Get mongodb.com gpg key
+  ansible.builtin.get_url:
+    url: https://pgp.mongodb.com/server-7.0.asc
+    dest: /usr/share/keyrings/mongodb-server-7.0.asc
+    owner: root
+    group: root
+    mode: "0644"
+  tags: install
+
+- name: Add mongodb.com repository
+  ansible.builtin.apt_repository:
+    repo: "deb [ signed-by=/usr/share/keyrings/mongodb-server-7.0.asc] http://repo.mongodb.org/apt/debian bullseye/mongodb-org/7.0 main"
+    state: present
+  tags: install
+
+- name: Install mongodb
+  ansible.builtin.apt:
+    name: mongodb-org
+    state: present
+  tags: install
+
+- name: Holding mongodb packages
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  with_items:
+    - mongodb-org
+    - mongodb-org-database
+    - mongodb-org-server
+    - mongodb-mongosh
+    - mongodb-org-mongos
+    - mongodb-org-tools
+  tags: install
+
+- name: Ensure permissions are correct on /var/lib/mongodb
+  ansible.builtin.file:
+    path: /var/lib/mongodb
+    owner: mongodb
+    group: mongodb
+    mode: "0755"
+  tags: install
+
+- name: Start and enable mongodb service
+  ansible.builtin.systemd:
+    name: mongod
+    state: started
+    enabled: true
+  tags: install
+
+- name: Deploy conf file
+  ansible.builtin.template:
+    src: mongod.conf.j2
+    dest: /etc/mongod.conf
+    owner: root
+    group: root
+    mode: "0644"
+  tags: install,conf
+  notify: Restart mongodb
+
+- name: Deploy keyFile for auth in cluster
+  ansible.builtin.template:
+    src: mongo-keyfile.j2
+    dest: /etc/mongo-keyfile
+    owner: mongodb
+    group: mongodb
+    mode: "0400"
+  tags: install
+
+- name: Deploy logrotate conf file
+  ansible.builtin.copy:
+    src: logrotate.conf
+    dest: /etc/logrotate.d/mongodb
+    owner: root
+    group: root
+    mode: "0644"
+  tags: install
+
+- name: Create replicaset
+  community.mongodb.mongodb_replicaset:
+    login_user: "admin"
+    login_password: "{{ lookup('community.hashi_vault.hashi_vault', 'ansible/data/mongodb/{{ env }}/admin:password') }}"
+    login_host: localhost
+    replica_set: "{{ mongodb_replicaset_name }}"
+    members: "{{ mongodb_replicaset_members }}"
+  tags: install

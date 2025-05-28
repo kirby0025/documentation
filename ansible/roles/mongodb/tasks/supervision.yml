@@ -1,0 +1,114 @@
+---
+
+- name: Deploy checkmk conf template
+  ansible.builtin.template:
+    src: mk_mongodb.cfg.j2
+    dest: /etc/check_mk/mk_mongodb.cfg
+    owner: root
+    group: root
+    mode: "0644"
+  tags: install
+
+- name: Deploy checkmk mongo check
+  ansible.builtin.get_url:
+    url: https://{{ mongodb_checkmk_url }}/check_mk/agents/plugins/mk_mongodb.py
+    dest: /usr/lib/check_mk_agent/plugins/
+    owner: root
+    group: root
+    mode: "0755"
+  tags: install
+
+- name: Deploy supervision role
+  community.mongodb.mongodb_role:
+    login_user: "admin"
+    login_password: "{{ lookup('community.hashi_vault.hashi_vault', 'ansible/data/mongodb/{{ env }}/admin:password') }}"
+    replica_set: "{{ mongodb_replicaset_name }}"
+    name: supervision
+    database: admin
+    privileges:
+      - resource:
+          db: ""
+          collection: "system.version"
+        actions:
+          - "collStats"
+      - resource:
+          db: ""
+          collection: "system.keys"
+        actions:
+          - "collStats"
+      - resource:
+          db: ""
+          collection: "system.roles"
+        actions:
+          - "collStats"
+      - resource:
+          db: ""
+          collection: "system.users"
+        actions:
+          - "collStats"
+      - resource:
+          db: ""
+          collection: "system.preimages"
+        actions:
+          - "collStats"
+      - resource:
+          db: ""
+          collection: "system.indexBuilds"
+        actions:
+          - "collStats"
+      - resource:
+          db: ""
+          collection: "system.rollback.id"
+        actions:
+          - "collStats"
+      - resource:
+          db: ""
+          collection: "system.views"
+        actions:
+          - "collStats"
+      - resource:
+          db: ""
+          collection: "system.replset"
+        actions:
+          - "collStats"
+      - resource:
+          db: ""
+          collection: "replset.initialSyncId"
+        actions:
+          - "collStats"
+      - resource:
+          db: ""
+          collection: "replset.election"
+        actions:
+          - "collStats"
+      - resource:
+          db: ""
+          collection: "replset.oplogTruncateAfterPoint"
+        actions:
+          - "collStats"
+      - resource:
+          db: ""
+          collection: "replset.minvalid"
+        actions:
+          - "collStats"
+    roles:
+      - role: "clusterMonitor"
+        db: "admin"
+      - role: "readAnyDatabase"
+        db: "admin"
+    state: present
+  tags: install,supervision
+
+- name: Create checkmk mongodb user
+  community.mongodb.mongodb_user:
+    login_user: "admin"
+    login_password: "{{ lookup('community.hashi_vault.hashi_vault', 'ansible/data/mongodb/{{ env }}/admin:password') }}"
+    database: "admin"
+    name: "checkmk"
+    password: "{{ lookup('community.hashi_vault.hashi_vault', 'ansible/data/mongodb/{{ env }}/users/checkmk:password') }}"
+    roles: "supervision"
+    auth_mechanism: "SCRAM-SHA-256"
+    replica_set: "{{ mongodb_replicaset_name }}"
+    state: "present"
+    update_password: on_create
+  tags: install,supervision

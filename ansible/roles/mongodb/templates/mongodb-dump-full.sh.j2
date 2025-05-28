@@ -1,0 +1,78 @@
+#!/bin/bash
+
+set -eu
+
+DATE=$(date +%Y%m%d)
+HOSTNAME=$(hostname -s)
+STATUS=0
+LOGFILE="/var/tmp/mongodb-dump-databases.log"
+HOST="localhost"
+COMPRESS=false
+USER="backup"
+PASSWORD="{{lookup('community.hashi_vault.hashi_vault', 'ansible/data/mongodb/{{ env }}/users/backup:password') }}"
+DUMP_OPTIONS=""
+
+touch ${LOGFILE}
+
+#
+# Fonctions
+#
+
+checkNas()
+{
+    if [ ! -e "${BACKUPDIR}/.mount" ]; then
+        echo "${BACKUPDIR} not mounted. Backup aborted." | tee -a ${LOGFILE}
+        exit 1
+    fi
+}
+
+usage()
+{
+  echo "$0 -r <retention> -d <repertoire> -c (compression)"
+  echo "Exemple : /data/scripts/mongodb-dump-full.sh -r 20 -d /nas -c"
+}
+
+#
+# Main
+#
+
+while getopts "hcr:d:" option
+do
+  case "${option}"
+  in
+    r)
+      RETENTION=${OPTARG};;
+    d)
+      BACKUPDIR=${OPTARG};;
+    c)
+      COMPRESS=true;;
+    h | *)
+      usage
+      exit 1;;
+  esac
+done
+
+echo "Lancement du dump - Retention : ${RETENTION} - Repertoire : ${BACKUPDIR}" | tee -a ${LOGFILE}
+
+# check if the node is secondary
+SEC=$(mongosh --host=${HOST} --authenticationDatabase admin --username ${USER} --password ${PASSWORD} --eval 'rs.hello().secondary' --quiet)
+if [ ! "${SEC}" == "true" ]; then
+    echo "$(date +%s)|2|Node is not seconday ${LOGFILE}" > /var/tmp/batch."$(basename $0)"
+    exit 0
+fi
+
+[ -d "${BACKUPDIR}" ] || mkdir -p "${BACKUPDIR}"
+
+if [ "${COMPRESS}" ]; then
+    DUMP_OPTIONS="${DUMP_OPTIONS} --authenticationDatabase=admin --username=${USER} --password=${PASSWORD} --gzip"
+else
+    DUMP_OPTIONS="${DUMP_OPTIONS} --authenticationDatabase=admin --username=${USER} --password=${PASSWORD}"
+fi
+
+# dump
+mongodump -v --host=${HOST} ${DUMP_OPTIONS} --archive="${BACKUPDIR}/${DATE}-${HOSTNAME}.gz" |tee -a ${LOGFILE}
+STATUS=$?
+
+# output in statusfile for checkmk
+echo "$(date +%s)|${STATUS}|Check log file ${LOGFILE}" > /var/tmp/batch."$(basename "$0")"
+echo "Fin du dump - Retention : ${RETENTION} - Repertoire : ${BACKUPDIR}" | tee -a ${LOGFILE}
