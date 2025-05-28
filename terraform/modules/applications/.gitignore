@@ -1,0 +1,7 @@
+*.swp
+.terraform*
+main.tfvars
+terraform.tfstate*
+plan.tfplan
+errored.tfstate
+!.terraform-docs.yml
