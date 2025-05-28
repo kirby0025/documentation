@@ -1,0 +1,22 @@
+---
+
+- name: Reconfigure sshd
+  ansible.builtin.command: dpkg-reconfigure openssh-server
+  changed_when: true
+
+- name: Restart sshd
+  ansible.builtin.service:
+    name: ssh
+    state: restarted
+
+- name: Removing ssh host public and private keys
+  ansible.builtin.file:
+    path: "{{ item.1 }}"
+    state: absent
+  register: state_pub
+  with_subelements:
+    - "{{ ssh_host_keys_keys }}"
+    - files
+  notify:
+    - Reconfigure sshd
+    - Restart sshd

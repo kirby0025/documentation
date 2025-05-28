@@ -1,0 +1,18 @@
+---
+
+ssh_host_keys_keys:
+  - type: ssh_rsa
+    pub_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDK+gk7loCySamkbnp4MseVMlNpv03AuxKKW/HSGy5a1BigD7ZcFXmAybY4gbpEe8IHZkBee/5I9DIEh827H6hbL/rhvtx172Vp3tsuPUgDtFJZJqZH4mMKyO713K3qzldBN4zbMUytIy6acFzNiPksAtwib6CtBFcfTreeRrVhaut/B1T9MK38MARXa6g3oNtqSgHOwKGbYHWsQy1Ekav+KosALlyYSVs4d0ioWbO74/hir+Of/5bJpqzddhaYUCxsvmdmBGQtj6n4pQBPuWVWY8a7DN1Js2/TNfgyi++9WH16/sGxbOMPpQmMVvJ9Zg0DhOuOFERAZdTfoRjVi2QOEH1nMaQTocQnd9Oy53XoshAsNYn9TWywzGe6fjw8qzpp+a3ko6hkmYS2/mvIe8gL0suBy1bJpaze9JIX/RIxbQa7GpD0PApabgU4eO/gZZpNAeyFYsFaxNtyuFwUIsClyyPX8kccQ2ufLJkNLC7Ix1bdKGkd2vtUBs1Q31xELUM= root@debian12-tpl001-lan"
+    files:
+      - /etc/ssh/ssh_host_rsa_key.pub
+      - /etc/ssh/ssh_host_rsa_key
+  - type: ssh_ecdsa
+    pub_key: "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBPciQgbaKkLubW/I3mCTsc7L1Dy+2zMvPw045332vVUmPeKm6t7xAu7nzUnjhUOxFK4qev1wgnOhPibwXQrxHQ4= root@debian12-tpl001-lan"
+    files:
+      - /etc/ssh/ssh_host_ecdsa_key.pub
+      - /etc/ssh/ssh_host_ecdsa_key
+  - type: ssh_ed25519
+    pub_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKIRtv0xKbDGS7G2rz9RQWnk/OSizkimy8WFBhokqxXR root@debian12-tpl001-lan"
+    files:
+      - /etc/ssh/ssh_host_ed25519_key.pub
+      - /etc/ssh/ssh_host_ed25519_key
