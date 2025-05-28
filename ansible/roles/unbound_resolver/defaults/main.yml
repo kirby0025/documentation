@@ -1,0 +1,6 @@
+---
+unbound_interfaces:
+  - "0.0.0.0"
+unbound_threads: 1
+unbound_cache_size: 100
+unbound_loglevel: 1

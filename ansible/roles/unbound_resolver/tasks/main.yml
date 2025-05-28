@@ -1,0 +1,76 @@
+---
+
+- name: Set specific variables for distributions
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - files:
+        - '{{ ansible_distribution }}-{{ ansible_distribution_version }}.yml'           # CentOS-6.5
+        - '{{ ansible_os_family }}-{{ ansible_distribution_version }}.yml'              # RedHat-6.5
+        - '{{ ansible_distribution }}-{{ ansible_distribution_major_version }}.yml'     # CentOS-6
+        - '{{ ansible_os_family }}-{{ ansible_distribution_major_version }}.yml'        # RedHat-6
+        - '{{ ansible_distribution }}.yml'                                              # CentOS
+        - '{{ ansible_os_family }}.yml'                                                 # RedHat
+        - 'default.yml'
+
+- name: Enhance socket buffer size in UDP
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: 4194304
+    reload: true
+  with_items:
+    - "net.core.rmem_max"
+    - "net.core.wmem_max"
+
+- name: Install Unbound
+  ansible.builtin.apt:
+    name: "{{ unbound_package }}"
+    update_cache: true
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Setup service configuration
+  ansible.builtin.template:
+    src: unbound.conf.j2
+    dest: /etc/unbound/unbound.conf.d/custom.conf
+    owner: unbound
+    group: unbound
+    mode: "0755"
+  notify: Reload Unbound
+
+- name: Set permission on conf directory
+  ansible.builtin.file:
+    path: /etc/unbound
+    owner: unbound
+    group: unbound
+    recurse: true
+
+- name: Ensure service is enabled at boot and started
+  ansible.builtin.systemd_service:
+    name: "unbound"
+    enabled: true
+    state: started
+
+- name: Deploy unbound exporter
+  ansible.builtin.copy:
+    src: unbound_exporter
+    dest: /usr/local/bin/unbound_exporter
+    mode: "0755"
+
+- name: Deploy unbound exporter service
+  ansible.builtin.template:
+    src: unbound_exporter.service.j2
+    dest: /etc/systemd/system/unbound_exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Daemon reload
+    - Restart unbound exporter
+
+- name: Deploy logrotate config file
+  ansible.builtin.copy:
+    src: logrotate
+    dest: /etc/logrotate.d/unbound
+    owner: root
+    group: root
+    mode: "0644"

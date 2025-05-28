@@ -1,0 +1,58 @@
+## {{ ansible_managed }}
+
+server:
+    verbosity: {{unbound_loglevel }}
+    extended-statistics: yes
+
+    do-udp: yes
+    do-tcp: yes
+    do-ip6: no
+
+    num-threads: {{ unbound_threads }}
+    msg-cache-slabs: {{ unbound_threads }}
+    rrset-cache-slabs: {{ unbound_threads }}
+    infra-cache-slabs: {{ unbound_threads }}
+    key-cache-slabs: {{ unbound_threads }}
+
+    rrset-cache-size: {{ unbound_cache_size }}m
+    key-cache-size: {{ ((unbound_cache_size/2) | int) }}m
+    msg-cache-size: {{ ((unbound_cache_size/2) | int) }}m
+    neg-cache-size: {{ ((unbound_cache_size/4) | int) }}m
+
+    prefetch: yes
+    cache-min-ttl: 300
+    cache-max-ttl: 86400
+
+    outgoing-range: 8192
+    num-queries-per-thread: 4096
+
+    so-rcvbuf: 4m
+    so-sndbuf: 4m
+    so-reuseport: yes
+    rrset-roundrobin: yes
+    val-log-level:1
+
+
+{% for iface in unbound_interfaces %}
+    interface: {{ iface }}
+{% endfor %}
+
+{% for cidr in unbound_authorized_cidrs %}
+    access-control: {{ cidr }} allow
+{% endfor %}
+
+{% if unbound_zones is defined %}
+{% for zone in unbound_zones %}
+{% if zone.private is defined and zone.private %}
+    domain-insecure: "{{ zone.name }}"
+{% endif %}
+{% endfor %}
+
+{% for zone in unbound_zones %}
+    forward-zone:
+        name: "{{ zone.name }}"
+{% for fwa in zone.forward_ip %}
+	forward-addr: {{ fwa }}
+{% endfor -%}
+{% endfor %}
+{% endif %}
