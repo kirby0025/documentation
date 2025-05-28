@@ -1,0 +1,29 @@
+# Check that variables exists
+.variables:checker:
+    variables:
+        VARS_TO_CHECK_SYSTEM: SRC_ROOT_PATH CONTAINER_IMAGE ENVIRONMENT ENVIRONMENT_SHORT
+        VARS_TO_CHECK_APP:
+        VARS_TO_CHECK: $VARS_TO_CHECK_SYSTEM $VARS_TO_CHECK_APP
+    script:
+        - echo "Checking of the existence of some variables..."
+        - |
+            checkVariables () {
+                    TXT_RED="\e[91m" && TXT_GREEN="\e[92m" && TXT_CLEAR="\e[0m"
+                    inError=0
+
+                    for var in "$@"
+                    do
+                        echo -ne "\$${var} : "
+                        if [ -z "${!var}" ]; then
+                                echo -e "\xE2\x9D\x8C ${TXT_RED}not defined${TXT_CLEAR}";
+                                inError=1;
+                        else
+                                echo -e "\xE2\x9C\x94 ${TXT_GREEN}defined${TXT_CLEAR}";
+                        fi
+                    done
+
+                    return $inError
+            }
+
+            checkVariables $VARS_TO_CHECK
+            exit $?

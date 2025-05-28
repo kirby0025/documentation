@@ -1,0 +1,179 @@
+# ###########################################
+# Security section
+# ###########################################
+.security:advisories:
+    image: <imageUrl>/docker/local-php-security-checker:1.0.0
+    allow_failure: true
+    script:
+        - cd $SRC_ROOT_PATH
+        - local-php-security-checker --format=junit src > ./report-security-checker.xml
+    artifacts:
+        reports:
+            junit: $SRC_ROOT_PATH/report-security-checker.xml
+
+# ###########################################
+# Qualimetry section
+# ###########################################
+.php:lint:
+    image: jakzal/phpqa:php${PHP_VERSION}${JAKZAL_PHP_VERSION}-alpine
+    script:
+        - cd $SRC_ROOT_PATH
+        - parallel-lint . --exclude vendor
+
+.php:checkstyle:
+    image: jakzal/phpqa:php${PHP_VERSION}${JAKZAL_PHP_VERSION}-alpine
+    script:
+        - cd $SRC_ROOT_PATH
+        - phpcs --extensions=php -n --standard=PSR12 src tests --report=junit > ./report-phpcs.xml
+    artifacts:
+        reports:
+            junit: $SRC_ROOT_PATH/report-phpcs.xml
+
+.php:stan:
+    image: jakzal/phpqa:php${PHP_VERSION}${JAKZAL_PHP_VERSION}-alpine
+    variables:
+        STAN_LEVEL: 5
+    script:
+        - echo ${STAN_LEVEL}
+        - cd $SRC_ROOT_PATH
+        - phpstan analyse src --level=$STAN_LEVEL --no-progress --error-format=junit > ./report-phpstan.xml
+    artifacts:
+        reports:
+            junit: $SRC_ROOT_PATH/report-phpstan.xml
+
+# ###########################################
+# Tests section
+# ###########################################
+.test:unit:
+    image: $CONTAINER_IMAGE
+    variables:
+        APP_ENV: test
+        XDEBUG_MODE: coverage
+    before_script:
+        - install-php-extensions xdebug-stable
+        - cp ./docker/env/.env.test $SRC_ROOT_PATH/.env
+        - cd $SRC_ROOT_PATH
+        - composer install --prefer-dist --no-progress --no-interaction
+        - bin/console cache:warmup --env=test
+    script:
+        - vendor/bin/simple-phpunit --coverage-text --colors=never --log-junit ./report-phpunit.xml
+    coverage: '/^\s*Lines:\s*\d+.\d+\%/'
+    artifacts:
+        reports:
+            junit: $SRC_ROOT_PATH/report-phpunit.xml
+
+.test:phpunit:
+    image: ${CONTAINER_IMAGE}_dev
+    variables:
+        APP_ENV: test
+        XDEBUG_MODE: coverage
+        GIT_STRATEGY: none
+        SRC_ROOT_PATH: /app
+    before_script:
+        - cd $SRC_ROOT_PATH
+        # Composer setup
+        - composer install --prefer-dist --no-progress --no-interaction
+        - composer dump-autoload --classmap-authoritative
+        - composer dump-env test
+        - composer run-script post-install-cmd
+    script:
+        - cd $SRC_ROOT_PATH
+        - ls -la
+        - vendor/bin/simple-phpunit --coverage-text --colors=never --log-junit="${CI_PROJECT_DIR}"/report-phpunit.xml
+    coverage: '/^\s*Lines:\s*\d+.\d+\%/'
+    artifacts:
+        reports:
+            junit: ./report-phpunit.xml
+
+.test:phpunit:standalone:
+    image: ${CONTAINER_IMAGE}_dev
+    variables:
+        APP_ENV: test
+        XDEBUG_MODE: coverage
+        GIT_STRATEGY: none
+        SRC_ROOT_PATH: /app
+    script:
+        - cd $SRC_ROOT_PATH
+        - vendor/bin/phpunit --coverage-text --colors=never --log-junit="${CI_PROJECT_DIR}"/report-phpunit.xml
+    coverage: '/^\s*Lines:\s*\d+.\d+\%/'
+    artifacts:
+        reports:
+            junit: ./report-phpunit.xml
+
+.test:codeception:
+    image: ${CONTAINER_IMAGE}_dev
+    variables:
+        APP_ENV: test
+        XDEBUG_MODE: coverage
+        GIT_STRATEGY: none
+        SRC_ROOT_PATH: /app
+    before_script:
+        - cd $SRC_ROOT_PATH
+        - sed -i 's#http://web#http://127.0.0.1:80#g' $SRC_ROOT_PATH/tests/api.suite.yml
+        # Composer setup
+        - composer install --prefer-dist --no-progress --no-interaction
+        - composer dump-autoload --classmap-authoritative
+        - composer dump-env test
+        - composer run-script post-install-cmd
+    script:
+        - cd $SRC_ROOT_PATH && symfony local:server:start --port=80 --no-tls -d
+        - $SRC_ROOT_PATH/vendor/bin/codecept run --xml --coverage --coverage-text --no-colors && true; exit_code=$?
+        - symfony local:server:stop
+        - exit $exit_code
+    after_script:
+        # Copy directory to CI dir for artifacts
+        - cp -r $SRC_ROOT_PATH/tests $CI_PROJECT_DIR/
+    coverage: '/^\s*Lines:\s*\d+.\d+\%/'
+    artifacts:
+        expire_in: 1 day
+        when: always
+        paths:
+            - ./tests/_build/output/
+        reports:
+            junit: ./tests/_build/output/report.xml
+
+.test:codeception:noweb:
+    extends: .test:codeception
+    before_script:
+        - cd $SRC_ROOT_PATH
+        # Composer setup
+        - composer install --prefer-dist --no-progress --no-interaction
+        - composer dump-autoload --classmap-authoritative
+        - composer dump-env test
+        - composer run-script post-install-cmd
+    script:
+        - cd $SRC_ROOT_PATH
+        - $SRC_ROOT_PATH/vendor/bin/codecept run --xml --coverage --coverage-text --no-colors && true; exit_code=$?
+        - exit $exit_code
+
+.test:codeception5:
+    image: ${CONTAINER_IMAGE}_dev
+    variables:
+        APP_ENV: test
+        XDEBUG_MODE: coverage
+        GIT_STRATEGY: none
+        SRC_ROOT_PATH: /app
+    before_script:
+        - cd $SRC_ROOT_PATH
+        - sed -i 's#http://web#http://127.0.0.1:80#g' $SRC_ROOT_PATH/tests/Api.suite.yml
+        # Composer setup
+        - composer install --prefer-dist --no-progress --no-interaction
+        - composer dump-autoload --classmap-authoritative
+        - composer dump-env test
+        - composer run-script post-install-cmd
+    script:
+        - cd $SRC_ROOT_PATH && symfony local:server:start --port=80 --no-tls -d
+        - $SRC_ROOT_PATH/vendor/bin/codecept run --xml --coverage --coverage-text --no-colors && true; exit_code=$?
+        - symfony local:server:stop
+        - exit $exit_code
+    after_script:
+        # Copy directory to CI dir for artifacts
+        - cp -r $SRC_ROOT_PATH/tests $CI_PROJECT_DIR/
+    coverage: '/^\s*Lines:\s*\d+.\d+\%/'
+    artifacts:
+        expire_in: 1 day
+        when: always
+        paths:
+            - ./tests/_output/
+        reports:
+            junit: ./tests/_output/report.xml

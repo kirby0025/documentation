@@ -1,0 +1,141 @@
+include:
+    - project: $TEMPLATES_PROJECT_NAME
+      file: 'docker-k8s-utils.yml'
+      ref: $TEMPLATES_DEFAULT_BRANCH
+    - project: $TEMPLATES_PROJECT_NAME
+      file: 'utils.yml'
+      ref: $TEMPLATES_DEFAULT_BRANCH
+
+workflow:
+    rules:
+        - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+          when: never
+        # NO DEPLOYMENT
+        - if: '$CI_COMMIT_TAG == null'
+          variables:
+              IMAGE_TAG: $CI_COMMIT_REF_SLUG-$CI_COMMIT_SHORT_SHA
+              CONTAINER_IMAGE: $CI_REGISTRY_IMAGE:$IMAGE_TAG
+          changes:
+              - app/*
+              - app/*/*
+              - Dockerfile
+              - .gitlab-ci.yml
+        # STAGING/PRODUCTION - tags only
+        - if: '$CI_COMMIT_TAG =~ /(alpha)|(beta)|(rc)/'
+          variables:
+              IMAGE_TAG: $CI_COMMIT_TAG
+              CONTAINER_IMAGE: $CI_REGISTRY_IMAGE:$IMAGE_TAG
+              ENVIRONMENT: 'staging'
+              ENVIRONMENT_SHORT: 'stg'
+        - if: '$CI_COMMIT_TAG'
+          variables:
+              IMAGE_TAG: $CI_COMMIT_TAG
+              CONTAINER_IMAGE: $CI_REGISTRY_IMAGE:$IMAGE_TAG
+              ENVIRONMENT: 'production'
+              ENVIRONMENT_SHORT: 'prd'
+
+variables:
+    SRC_ROOT_PATH: "./app"
+    VAULT_ADDR: https://vault.example.com
+
+stages:
+    - lint
+    - build
+    - test
+    - release
+
+variables:checker:
+    extends: .variables:checker
+    stage: .pre
+    variables:
+        VARS_TO_CHECK_APP: ""
+        VARS_TO_CHECK_SYSTEM: SRC_ROOT_PATH CONTAINER_IMAGE
+
+# ###########################################
+# Lint
+# ###########################################
+
+linter:
+    image: golangci/golangci-lint:v2.0.2-alpine
+    rules:
+        - changes:
+              - .gitlab-ci.yml
+              - app/*
+              - app/*/*
+          when: always
+    stage: lint
+    before_script:
+        - cd $SRC_ROOT_PATH
+    script:
+        - go mod tidy
+        - golangci-lint run --output.code-climate.path gl-code-quality-report.json --path-prefix /app/
+    artifacts:
+        reports:
+            codequality: $SRC_ROOT_PATH/gl-code-quality-report.json
+build:application_test:
+    extends: .build:image
+    stage: build
+    variables:
+        BUILD_TARGET: dev
+        BUILD_IMAGE_DESTINATION: ${CONTAINER_IMAGE}_dev
+        BUILD_ARGS: ""
+
+#######################################
+# TEST
+#######################################
+
+go:tests:
+    image: ${CONTAINER_IMAGE}_dev
+    stage: test
+    before_script:
+        - cd $SRC_ROOT_PATH
+        - go mod tidy
+        - go install github.com/jstemmer/go-junit-report@latest
+        - go install github.com/boumenot/gocover-cobertura@latest
+    script:
+        - echo "Execute tests"
+        - go test ./... -v | go-junit-report > report-gotest.xml
+        - echo "Compute coverage"
+        - go test ./... -v -coverprofile=coverage.txt -covermode count
+        - gocover-cobertura < coverage.txt > report-coverage.xml
+    coverage: '/^coverage: \d+.\d+% of statements/'
+    artifacts:
+        reports:
+            junit: $SRC_ROOT_PATH/report-gotest.xml
+            coverage_report:
+                coverage_format: cobertura
+                path: $SRC_ROOT_PATH/report-coverage.xml
+
+#######################################
+# BUILD
+# #####################################
+
+build:image:
+    extends: .build:image
+    stage: build
+    rules:
+        - if: '$CI_COMMIT_TAG'
+          when: on_success
+    variables:
+        BUILD_TARGET: prod
+        BUILD_IMAGE_DESTINATION: $CONTAINER_IMAGE
+        BUILD_ARGS: ""
+
+# ###########################################
+# Release
+# ###########################################
+release:image:
+    image: hashicorp/vault:1.19.3
+    stage: release
+    environment: $ENVIRONMENT
+    before_script:
+        - echo "Authentification Vault"
+        - export VAULT_TOKEN=$(vault write -field=token auth/approle/login role_id=$VAULT_ROLE_ID secret_id=$VAULT_SECRET_ID)
+    script:
+        - echo "Push last tag on Vault"
+        - vault kv put app/<myApp>/$ENVIRONMENT_SHORT/image_latest name=$CONTAINER_IMAGE
+    needs:
+        - build:image
+    rules:
+        - if: '$CI_COMMIT_TAG'
+          when: on_success

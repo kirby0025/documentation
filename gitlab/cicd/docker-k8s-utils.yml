@@ -1,0 +1,108 @@
+stages:
+  - init
+  - build
+  - scan
+  - deploy
+
+# ###########################################
+# Configuration section
+# ###########################################
+.helminit: &helminit
+  before_script:
+    - echo "Adding Helm repository..."
+    - helm repo add --username $CI_REGISTRY_USER --password $CI_JOB_TOKEN helm-charts $CI_API_V4_URL/projects/645/packages/helm/stable
+    - helm repo update
+    - echo "Validating Helm dependencies..."
+    - helm dependency update ./helm
+
+# ###########################################
+# Build section
+# ###########################################
+.build_template: &build_template
+  image:
+    name: moby/buildkit:v0.21.0
+    entrypoint: [""]
+  variables:
+    DOCKER_BUILDKIT: 1
+  before_script:
+    - echo "Preparing BuildKit environment..."
+    - mkdir -p /root/.docker
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /root/.docker/config.json
+    - echo "Initializing build arguments..."
+    - |
+      for VARNAME in $BUILD_ARGS; do
+        VALUE=$(eval echo \$$VARNAME)
+        BUILDPARAMS="$BUILDPARAMS --opt build-arg:$VARNAME=$VALUE"
+      done
+      echo "Build parameters: $BUILDPARAMS"
+  script:
+    - echo "Validating build context..."
+    - ls -la $CI_PROJECT_DIR
+    - echo "Starting BuildKit build with the following settings:"
+    - |
+      buildctl-daemonless.sh build --frontend dockerfile.v0 \
+        --local context=. \
+        --local dockerfile=. \
+        --output type=image,name=${BUILD_IMAGE_DESTINATION},push=true \
+        --export-cache type=registry,ref=${CI_REGISTRY_IMAGE}/cache,image-manifest=true \
+        --import-cache type=registry,ref=${CI_REGISTRY_IMAGE}/cache \
+        --opt target=${BUILD_TARGET} \
+        ${BUILDPARAMS}
+
+.build:image:
+  <<: *build_template
+  variables:
+    BUILD_IMAGE_DESTINATION: $CONTAINER_IMAGE
+    BUILD_TARGET:
+    BUILD_ARGS:
+
+# ###########################################
+# Deploy section
+# ###########################################
+.deploy:k8s:
+  image: alpine/helm:3.21.0
+  variables:
+    HELM_CUSTOM_ARGS: ""
+    NAMESPACE: tests
+    HPA_REPLICAS: 1
+    HPA_MAXREPLICAS: 1
+    HELM_NAME: $CI_PROJECT_NAME
+    INJECT_ENVVARS_GITLAB: "false"
+    VALUES_ENVVARS_PATH: symfonyLib.phpfpm.envVars.
+  before_script:
+    - !reference [".helminit", before_script]
+    - |
+      if [[ "$INJECT_ENVVARS_GITLAB" == "true" ]]; then
+        echo "Injecting environment variables into Helm Chart..."
+        for VARNAME in $(env); do
+          if [[ $(echo $VARNAME | egrep '^ENV_') ]]; then
+            NAME=$(echo "$VARNAME" | cut -d"=" -f1 | sed "s/ENV_/$VALUES_ENVVARS_PATH/")
+            VAR=$(echo "$VARNAME" | cut -d"=" -f2-)
+            echo -e $NAME
+            ENVVARS="${ENVVARS} --set $NAME=$VAR"
+          fi
+        done
+      fi
+  script:
+    - echo "Validating Helm chart..."
+    - helm lint ./helm  # Validation du chart Helm avant déploiement
+    - echo "Deploying to $ENVIRONMENT k8s cluster in $NAMESPACE namespace..."
+    - |
+      helm upgrade --install --namespace $NAMESPACE -f ./helm/values.yaml $HELM_CUSTOM_ARGS \
+        --set global.app.env="$ENVIRONMENT_SHORT" \
+        --set global.replica.replicaCount="$HPA_REPLICAS" \
+        --set global.replica.maxReplicaCount="$HPA_MAXREPLICAS" \
+        --set global.app.version="$IMAGE_TAG" \
+        --set global.namespace="$NAMESPACE" \
+        --set global.app.revision="$CI_COMMIT_SHORT_SHA" \
+        --set symfonyLib.phpfpm.image="$CI_REGISTRY_IMAGE" \
+        --set pythonLib.python.image="$CI_REGISTRY_IMAGE" \
+        $ENVVARS $HELM_NAME ./helm
+    - if [ $? -eq 0 ]; then touch success; fi
+  after_script:
+    - |
+      if [ -f 'success' ] && [ "$ENVIRONMENT" == 'production' ]; then
+        echo 'Sending notification to Teams webhook...'
+        apk add curl
+        curl -H 'Content-Type: application/json' -d "{\"text\": \"[prd] [job/$CI_JOB_NAME] [$CI_PROJECT_NAME] [$CI_COMMIT_REF_NAME] [$CI_PIPELINE_URL] completed!\"}" $TEAMS_WEBHOOK
+      fi
