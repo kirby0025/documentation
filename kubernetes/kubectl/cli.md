@@ -33,3 +33,9 @@ kubectl kustomize ./ |less
 ```bash
 kubectl exec -it -n system clickhouse-server-shard0-0 -- /bin/bash
 ```
+
+### Get all pods with a specific label
+
+```bash
+kubectl get pods --all-namespaces -l helm.sh/chart=company-2.7.1
+```
