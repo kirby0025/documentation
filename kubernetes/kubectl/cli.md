@@ -38,4 +38,5 @@ kubectl exec -it -n system clickhouse-server-shard0-0 -- /bin/bash
 
 ```bash
 kubectl get pods --all-namespaces -l helm.sh/chart=company-2.7.1
+kubectl get pods -n produits -l app.kubernetes.io/name=cyber-consumer-domain-change
 ```
