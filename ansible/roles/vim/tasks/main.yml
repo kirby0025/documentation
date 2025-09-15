@@ -1,0 +1,34 @@
+---
+
+- name: install vim and requirements for role
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  remote_user: "{{ app_user | default('root') }}"
+  become: true
+  with_items:
+    - vim
+    - git
+
+- name: deploy vimrc
+  ansible.builtin.copy:
+    src: vimrc
+    dest: "{{ vim_dir | default('/root/') }}/.vimrc"
+    owner: "{{ app_user | default('root') }}"
+    group: "{{ vim_group | default('root') }}"
+    mode: 0644
+  remote_user: "{{ app_user | default('root') }}"
+
+- name: ensure plugins and colors folder exists
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - "{{ vim_plugins_dir | default('/root/.vim/pack/plugins/start') }}"
+
+- name: download and install vim plugins
+  ansible.builtin.git:
+    repo: "{{ item.url }}"
+    dest: "{{ vim_plugins_dir | default('/root/.vim/pack/plugins/start') }}/{{ item.dest }}"
+  remote_user: "{{ app_user | default('root') }}"
+  loop: "{{ vim_plugins }}"

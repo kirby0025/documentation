@@ -1,0 +1,55 @@
+" ansible managed
+
+" We don't care about vi
+set nocompatible
+" Syntax color
+syntax on
+" Read/write a .viminfo file, don't store more than 50 lines of registers
+set viminfo='20,\"50
+" Keep 50 lines of command line history
+set history=50
+" Disable auto-indent
+set noautoindent
+" Show line and column number of cursor
+set ruler
+" Search is case sensistive only if there is uppercase in the pattern
+set smartcase
+" Disable bell and use visualbell
+set noerrorbells
+set visualbell
+" Highlight search match
+set hlsearch
+" Always display a status line
+set laststatus=2
+" Use spaces when using the tab key
+set expandtab
+" Use 4 spaces
+set shiftwidth=4
+set softtabstop=4
+" Restore cursor position
+autocmd BufReadPost * if line("'\"") && line("'\"") <= line("$") | exe "normal `\"" | endif
+" Disable automatic visual mode
+set mouse-=a
+" show line numbers
+set nu
+" set color for white background
+:color desert
+:highlight ws ctermbg=red guibg=red
+:match ws /\s\+$/
+
+set statusline+=%#warningmsg#
+set statusline+=%{SyntasticStatuslineFlag()}
+set statusline+=%*
+
+let g:syntastic_always_populate_loc_list = 1
+let g:syntastic_auto_loc_list = 1
+let g:syntastic_check_on_open = 1
+let g:syntastic_check_on_wq = 0
+
+let g:ale_fixers = {
+\    '*': ['remove_trailing_lines','trim_whitespace'],
+\    'yaml': ['yamllint'],
+\    'python': ['pylint'],
+\}
+
+filetype plugin indent on

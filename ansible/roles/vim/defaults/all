@@ -1,0 +1,15 @@
+---
+
+vim_plugins:
+    - url: "https://github.com/jvirtanen/vim-hcl.git"
+      dest: "vim-hcl"
+    - url: "https://github.com/fatih/vim-go.git"
+      dest: "vim-go"
+    - url: "https://github.com/vim-airline/vim-airline.git"
+      dest: "vim-airline"
+    - url: "https://tpope.io/vim/fugitive.git"
+      dest: "fugitive"
+    - url: "https://github.com/dense-analysis/ale"
+      dest: "ale"
+    - url: "https://github.com/preservim/nerdtree"
+      dest: "nerdtree"

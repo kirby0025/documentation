@@ -1,0 +1,4 @@
+---
+
+vim_package: vim
+vim_plugins_dir: "~/.vim/pack/plugins/start"
