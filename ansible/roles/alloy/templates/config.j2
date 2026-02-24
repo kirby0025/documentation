@@ -1,0 +1,34 @@
+otelcol.receiver.filelog "file" {
+  include = ["/in/*.log"]
+  operators = [{
+      type = "regex_parser",
+      regex = `^(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{2}:\d{2}) (?P<msg>.*)$`,
+      timestamp = {
+        parse_from = "attributes.timestamp",
+        layout = "%Y-%m-%dT%H:%M:%S%j",
+      },
+      message = {
+        parse_from = "attributes.msg",
+      },
+    },{
+      type = "remove",
+      field = "attributes.timestamp",
+  }]
+  output {
+    logs = [otelcol.exporter.syslog.outsyslog.input]
+  }
+}
+otelcol.exporter.file "outfile" {
+    path = "/out/output.log"
+}
+
+otelcol.exporter.syslog "outsyslog" {
+    endpoint = "slaithier-promax14"
+}
+
+otelcol.exporter.debug "default" {}
+
+logging {
+  level  = "{{ alloy_log_level }}"
+  format = "logfmt"
+}

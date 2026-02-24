@@ -1,0 +1,14 @@
+---
+
+alloy_version: "1.13.2"
+alloy_log_level: "info"
+alloy_username: "alloy"
+alloy_groupname: "alloy"
+alloy_uid: "1001"
+alloy_gid: "1001"
+alloy_config_directory: "/etc/alloy"
+alloy_config_file: "{{ alloy_config_directory }}/config.alloy"
+alloy_working_directory: "/var/lib/alloy"
+alloy_binary_dir: "/usr/local/bin"
+alloy_run_args: "--stability.level=experimental --server.http.listen-addr='0.0.0.0:12345'"
+alloy_restart_on_upgrade: true

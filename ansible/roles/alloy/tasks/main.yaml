@@ -1,0 +1,85 @@
+---
+
+- name: Download and install Alloy binary
+  ansible.builtin.unarchive:
+    src: "https://github.com/grafana/alloy/releases/download/v{{ alloy_version }}/alloy-linux-amd64.zip"
+    dest: "{{ alloy_binary_dir }}"
+    remote_src: true
+  tags: install
+
+- name: Rename binary
+  ansible.builtin.copy:
+    src: "{{ alloy_binary_dir }}/alloy-linux-amd64"
+    dest: "{{ alloy_binary_dir }}/alloy"
+    remote_src: true
+    mode: 0755
+  tags: install
+
+- name: Create Alloy group
+  ansible.builtin.group:
+    name: "{{ alloy_groupname }}"
+    gid: "{{ alloy_gid }}"
+  tags: install
+
+- name: Create Alloy user
+  ansible.builtin.user:
+    name: "{{ alloy_username }}"
+    uid: "{{ alloy_uid }}"
+    group: "{{ alloy_groupname }}"
+    shell: "/bin/false"
+  tags: install
+
+- name: Ensure config directory exists
+  ansible.builtin.file:
+    path: "{{ alloy_config_directory }}"
+    owner: "{{ alloy_username }}"
+    group: "{{ alloy_groupname }}"
+    state: directory
+    mode: "0755"
+  tags: install,config
+
+- name: Ensure working directory exists
+  ansible.builtin.file:
+    path: "{{ alloy_working_directory }}"
+    state: directory
+    owner: "{{ alloy_username }}"
+    group: "{{ alloy_groupname }}"
+    mode: "0755"
+  tags: install
+
+- name: Deploy Alloy config
+  ansible.builtin.template:
+    src: "config.j2"
+    dest: "{{ alloy_config_directory }}/config.alloy"
+    owner: "{{ alloy_username }}"
+    group: "{{ alloy_groupname }}"
+    mode: "0644"
+  notify: Restart alloy
+  tags: install,config
+
+- name: Deploy Alloy default file
+  ansible.builtin.template:
+    src: "default.j2"
+    dest: "/etc/default/alloy"
+    owner: "root"
+    group: "root"
+    mode: 0644
+  notify: Restart alloy
+  tags: install,config
+
+- name: Deploy Alloy systemd config
+  ansible.builtin.template:
+    src: "systemd_service.j2"
+    dest: "/etc/systemd/system/alloy.service"
+    owner: "root"
+    group: "root"
+    mode: 0644
+  tags: install
+
+- name: Start and enable Alloy service
+  ansible.builtin.systemd_service:
+    name: "alloy.service"
+    state: started
+    enabled: true
+    daemon_reload: true
+  tags: install
